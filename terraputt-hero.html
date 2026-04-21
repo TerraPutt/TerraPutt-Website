@@ -2796,6 +2796,39 @@ setInterval(() => {
   }
   lastInteractionTime = performance.now() / 1000;
 }, 5000);
+
+/* =================================================================
+   Mobile auto-cycle — on touch/narrow viewports, the user can't drive
+   the interactive putting flow, so we continuously cycle through the
+   topology library every 3s to keep the reshape-on-demand value prop
+   visible. Bypasses the 45s idle gate used on desktop.
+   ================================================================= */
+const mobileMQ = window.matchMedia('(max-width: 768px)');
+const MOBILE_CYCLE = ['backstop', 'goldenbell', 'bowl', 'sidehill', 'plateau', 'pinehurst', 'uphill', 'downhill'];
+let mobileIdx = 0;
+let mobileTimer = null;
+
+function startMobileCycle() {
+  if (mobileTimer) return;
+  mobileTimer = setInterval(() => {
+    if (gameState !== S_HERO) return;
+    if (transStart >= 0) return;
+    const pick = MOBILE_CYCLE[mobileIdx % MOBILE_CYCLE.length];
+    mobileIdx++;
+    selectTopology(pick, false);
+  }, 3000);
+}
+function stopMobileCycle() {
+  if (!mobileTimer) return;
+  clearInterval(mobileTimer);
+  mobileTimer = null;
+}
+
+if (mobileMQ.matches) startMobileCycle();
+mobileMQ.addEventListener('change', (e) => {
+  if (e.matches) startMobileCycle();
+  else stopMobileCycle();
+});
 </script>
 </body>
 </html>
