@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Follow the Build — TerraPutt</title>
+<title>TerraPutt — Share your take</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -116,7 +116,8 @@
     font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
     color: var(--ink-dim);
   }
-  .field input {
+  .field input,
+  .field textarea {
     background: transparent;
     border: none; border-bottom: 1px solid var(--ink-faint);
     padding: 10px 0; color: var(--ink);
@@ -124,10 +125,17 @@
     font-size: 16px; letter-spacing: -0.005em;
     transition: border-color 0.2s ease;
   }
-  .field input:focus {
+  .field textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+  .field input:focus,
+  .field textarea:focus {
     outline: none; border-bottom-color: var(--accent);
   }
-  .field input::placeholder { color: var(--ink-faint); }
+  .field input::placeholder,
+  .field textarea::placeholder { color: var(--ink-faint); }
   .field input:invalid:not(:placeholder-shown) {
     border-bottom-color: rgba(245,193,130,0.5);
   }
@@ -187,7 +195,7 @@
 <nav class="nav">
   <div class="nav-left">
     <div class="wordmark"><a href="/"><span class="t">Terra</span><span class="p">Putt</span></a></div>
-    <div class="pill">TP-01 · Houston</div>
+    <div class="pill">Early concept</div>
   </div>
   <div class="nav-right">
     <a href="/"><span class="arrow"></span>Back</a>
@@ -195,9 +203,9 @@
 </nav>
 
 <main class="wrap">
-  <div class="eyebrow">Follow the Build · TP-01</div>
-  <h1>Follow<br><em>the build.</em></h1>
-  <p class="sub">We're building TP-01 in Houston. Drop your info — you'll get build notes, site updates, and first dibs on the Houston beta.</p>
+  <div class="eyebrow">Early concept · Help us figure this out</div>
+  <h1>Tell us<br><em>what you think.</em></h1>
+  <p class="sub">We're at the napkin-sketch stage — an idea, a prototype, and a lot of open questions. If a reshapable outdoor putting green in your backyard is something you'd actually want, we want to hear from you. We'll share what we learn as we go.</p>
 
   <form id="followForm"
         name="follow-build"
@@ -209,33 +217,31 @@
     <p style="display:none">
       <label>Leave this empty: <input name="bot-field"></label>
     </p>
-    <div class="row">
-      <div class="field">
-        <label for="firstName">First name</label>
-        <input id="firstName" name="firstName" type="text" required>
-      </div>
-      <div class="field">
-        <label for="zip">ZIP</label>
-        <input id="zip" name="zip" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="77006" required>
-      </div>
+    <div class="field">
+      <label for="firstName">First name</label>
+      <input id="firstName" name="firstName" type="text" required>
     </div>
     <div class="field">
       <label for="email">Email</label>
       <input id="email" name="email" type="email" placeholder="you@domain.com" required>
     </div>
-    <button type="submit" class="submit">Follow the Build</button>
+    <div class="field">
+      <label for="thoughts">What would make this interesting to you? <span style="opacity:0.55; text-transform:none; letter-spacing:0; font-family:inherit;">(optional)</span></label>
+      <textarea id="thoughts" name="thoughts" rows="4" placeholder="The putt you'd practice first. What you wish your current setup did. Or anything that comes to mind."></textarea>
+    </div>
+    <button type="submit" class="submit">Share your take</button>
   </form>
 
   <div class="thanks">
-    <h1>You're in.<br><em>We'll be in touch.</em></h1>
-    <p class="sub">Houston ZIPs get first dibs when beta invites go out. Everyone else gets build notes and site updates.</p>
+    <h1>Thanks.<br><em>We hear you.</em></h1>
+    <p class="sub">We'll send you something when we have something worth sending — updates as the concept evolves, questions when we're stuck, and a heads-up long before any of this is real.</p>
   </div>
 
-  <p class="note">Houston ZIPs get <span class="hl">priority</span> on beta invites · No spam · Unsubscribe any time</p>
+  <p class="note">No spam · Unsubscribe any time · We're genuinely at the sketch stage</p>
 </main>
 
 <div class="foot">
-  <span>TP-01 · Houston</span>
+  <span>Early concept</span>
   <span>© TerraPutt</span>
 </div>
 
