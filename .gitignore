@@ -1,0 +1,21 @@
+# Claude Code state
+.claude/
+
+# OS / editor junk
+desktop.ini
+.DS_Store
+Thumbs.db
+
+# Office lock files
+~$*
+
+# Node / build (if/when we add tooling)
+node_modules/
+dist/
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
