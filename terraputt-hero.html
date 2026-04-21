@@ -33,18 +33,18 @@
   literacy is the flex.
 
     Headline:    "The ground, on command."
-    Sub:         "A connected putting surface that rearranges
-                  its own topology. Twelve thousand actuators
-                  beneath a seamless turf. Touch a shape."
-    Eyebrow:     "TERRAPUTT · TP-01"
+    Sub:         "A connected outdoor putting surface that reshapes
+                  on demand. Set the break, pick the hole, change
+                  the slope. Touch a shape."
+    Eyebrow:     "TerraPutt · Early concept"
     Phone title: "Surface"  (not "Topology" — more direct)
-    Spec chip:   "12,480 actuators · 18ft Ø · installed in 3 days"
+    Spec chip:   "Profiles · Unlimited · Reconfigure < 10s"
 
   INTERACTION SPEC
   - Five topologies: Flat, Back Mound, Right Ridge, Center Bowl,
     Tier, Cross Slope.
   - Reconfigure has four phases: anticipation (small pre-dip),
-    lower, actuator wave traveling outward from the feature's
+    lower, relief ripple traveling outward from the feature's
     epicenter, rise with settle micro-bounce.
   - First-load idle demo: selects "Back Mound" 2.5s after load,
     returns to Flat 5s after that. Plays exactly once.
@@ -583,7 +583,7 @@ import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cann
 
 /* ---------- Topology library ----------
    Each entry returns a localized height field. Epicenter is used
-   to seed the actuator wave — the shimmer radiates from there
+   to seed the relief ripple — the shimmer radiates from there
    rather than from the origin, so each surface "announces" itself.
 -------------------------------------------------------------------- */
 /* Curated 9-topology library, grouped into three tiers:
@@ -766,7 +766,7 @@ function selectTopology(id, userInitiated) {
 /* =================================================================
    THREE.js scene
    ================================================================= */
-let scene, camera, renderer, green, geometry, actuators;
+let scene, camera, renderer, green, geometry, reliefNodes;
 let flag, flagGroup, ballPos, ballMesh;
 let holeRim, holeInner, holePosVec;
 let groundFloor;
@@ -1624,8 +1624,8 @@ function init() {
     PIVOT_H: PIVOT_H
   };
 
-  /* ---------- Actuator grid — emissive dots for reconfigure shimmer ---------- */
-  actuators = new THREE.Group();
+  /* ---------- Relief node grid — emissive dots for reconfigure shimmer ---------- */
+  reliefNodes = new THREE.Group();
   const dotGeom = new THREE.SphereGeometry(0.055, 10, 8);
   const spacing = 0.85;
   const count = 12;
@@ -1643,10 +1643,10 @@ function init() {
       const d = new THREE.Mesh(dotGeom, m);
       d.position.set(dx, 0.02, dz);
       d.userData = { gx: dx, gz: dz };
-      actuators.add(d);
+      reliefNodes.add(d);
     }
   }
-  scene.add(actuators);
+  scene.add(reliefNodes);
 
   /* ---------- Topology grid ---------- */
   buildTopoGrid();
@@ -1909,9 +1909,9 @@ function updateGeometry(t) {
   col.needsUpdate = true;
   geometry.computeVertexNormals();
 
-  /* ---- Actuator wave radiating from epicenter ---- */
+  /* ---- Relief ripple radiating from epicenter ---- */
   const g = shimmer;
-  actuators.children.forEach((d) => {
+  reliefNodes.children.forEach((d) => {
     if (g <= 0.001) { d.material.opacity = 0; return; }
     const dx = d.userData.gx - epi[0];
     const dz = d.userData.gz - epi[1];
