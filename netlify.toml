@@ -3,7 +3,7 @@
 
 [[redirects]]
   from = "/"
-  to = "/terraputt-hero-rev-b.html"
+  to = "/terraputt-hero.html"
   status = 200
 
 [[headers]]

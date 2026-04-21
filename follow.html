@@ -246,7 +246,7 @@
     if (!form.checkValidity()) { form.reportValidity(); return; }
     const body = new URLSearchParams(new FormData(form)).toString();
     try {
-      const res = await fetch('/', {
+      const res = await fetch('/follow.html', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,

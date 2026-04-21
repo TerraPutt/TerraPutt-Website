@@ -6,7 +6,7 @@ Static site, deployed to Netlify. Form submissions from [follow.html](follow.htm
 
 | Path | Purpose |
 |---|---|
-| `terraputt-hero-rev-b.html` | Hero (served at `/`) |
+| `terraputt-hero.html` | Hero (served at `/`) |
 | `follow.html` | "Follow the build" signup form |
 | `netlify.toml` | Publish config + root redirect + security headers |
 
@@ -47,7 +47,7 @@ Free tier: 100 submissions/month. Past that, $19/mo for 1000.
 
 ```bash
 python -m http.server 8000
-# open http://localhost:8000/terraputt-hero-rev-b.html
+# open http://localhost:8000/terraputt-hero.html
 ```
 
 Forms don't submit locally (Netlify only intercepts on their infra); test form wiring after first deploy.
