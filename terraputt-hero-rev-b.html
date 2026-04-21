@@ -1,0 +1,2688 @@
+<!--
+  TerraPutt — Rev B Hero
+  ---------------------------------------------------------------
+  CONCEPT
+  A cinematic product-shot stage. The green is the hero —
+  shot like a Dyson fan or Rivian wheel on a dark seamless floor,
+  with warm key light and cool fill. The iPhone sits as a
+  supporting object, anchored bottom-right, composed as if it
+  were a second physical product on the same stage rather than
+  a UI panel floating in space.
+
+  RENDERING APPROACH
+  Three.js + WebGL. The brief requires showing a physical
+  deformation of the ground in real time in response to a tap,
+  which rules out video loops, stills, and Lottie. A shader-
+  driven turf surface with per-vertex noise, mowing stripes,
+  anisotropic sheen, and a soft contact shadow gives the
+  fidelity ceiling we can reach in a single file.
+
+  CAMERA / COMPOSITION
+  - Slow 8-second dolly on idle (never ambient pulsing of the
+    green itself — the camera moves, the product rests).
+  - First load: one unprompted idle demo — a single topology
+    swap — so the viewer understands the product category
+    without being told.
+  - Green is composed center-left; phone is composed bottom-
+    right; headline sits upper-left in negative space. No
+    panel chrome, no gradients behind the headline.
+
+  COPY DECISIONS
+  Voice: Teenage Engineering / Rivian / Dyson. No exclamation
+  marks. No "unlock / elevate / revolutionary". Technical
+  literacy is the flex.
+
+    Headline:    "The ground, on command."
+    Sub:         "A connected putting surface that rearranges
+                  its own topology. Twelve thousand actuators
+                  beneath a seamless turf. Touch a shape."
+    Eyebrow:     "TERRAPUTT · TP-01"
+    Phone title: "Surface"  (not "Topology" — more direct)
+    Spec chip:   "12,480 actuators · 18ft Ø · installed in 3 days"
+
+  INTERACTION SPEC
+  - Five topologies: Flat, Back Mound, Right Ridge, Center Bowl,
+    Tier, Cross Slope.
+  - Reconfigure has four phases: anticipation (small pre-dip),
+    lower, actuator wave traveling outward from the feature's
+    epicenter, rise with settle micro-bounce.
+  - First-load idle demo: selects "Back Mound" 2.5s after load,
+    returns to Flat 5s after that. Plays exactly once.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TerraPutt — TP-01</title>
+<meta name="viewport" content="width=1920">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0a0a0b;
+    --bg-1: #121215;
+    --bg-2: #1b1b1f;
+    --ink: #eeece8;
+    --ink-mid: rgba(238,236,232,0.62);
+    --ink-dim: rgba(238,236,232,0.34);
+    --ink-faint: rgba(238,236,232,0.14);
+    --accent: #c9ff4a;     /* electric lime — premium tech, not golf */
+    --warm: #f5c182;
+    --border: rgba(238,236,232,0.09);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--bg-0); color: var(--ink);
+    font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  /* ------------- STAGE ------------- */
+  /* Subtle open-air feel: a faint warm "sky" band at the top fading
+     into a darker "ground" at the bottom, with a light pool around
+     the green. Just enough vertical bias to cue "outdoor" without
+     painting a literal sky. */
+  #stage {
+    position: fixed; inset: 0;
+    background: #0a0a0c;
+  }
+  #canvas-host { position: absolute; inset: 0; }
+
+  /* subtle film grain */
+  #grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 20;
+    opacity: 0.05; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  /* vignette */
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 19;
+    background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+
+  /* ------------- NAV CHROME ------------- */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 44px;
+    font-size: 12px; letter-spacing: 0.12em;
+  }
+  .nav-left { display: flex; align-items: center; gap: 14px; }
+  .wordmark {
+    font-weight: 500; letter-spacing: 0.32em; font-size: 13px;
+    text-transform: uppercase;
+  }
+  .wordmark .t { color: var(--ink); }
+  .wordmark .p { color: var(--ink-mid); }
+  .pill {
+    padding: 4px 10px; border: 1px solid var(--border);
+    border-radius: 999px; color: var(--ink-mid); font-size: 10px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .nav-right { display: flex; align-items: center; gap: 28px; color: var(--ink-mid); }
+  .nav-right a { color: inherit; text-decoration: none; text-transform: uppercase; font-size: 11px; letter-spacing: 0.18em; }
+  .nav-cta {
+    padding: 8px 14px; border: 1px solid var(--ink-faint);
+    border-radius: 999px; color: var(--ink) !important;
+  }
+
+  /* ------------- HEADLINE BLOCK ------------- */
+  .headline {
+    position: fixed; z-index: 15;
+    top: 128px; left: 64px; max-width: 620px;
+    pointer-events: none;
+  }
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: 0.32em;
+    color: var(--ink-mid); text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 10px var(--accent);
+  }
+  /* Secondary orienting line — anchors the outdoor positioning
+     before the poetic headline lands. Indented past the dot so it
+     aligns with the eyebrow text above it. */
+  .eyebrow-sub {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; letter-spacing: 0.32em;
+    color: var(--ink-dim); text-transform: uppercase;
+    margin-left: 16px;
+    margin-bottom: 22px;
+  }
+  h1.hero {
+    font-family: "Inter Tight", sans-serif;
+    font-weight: 300;
+    font-size: 88px; line-height: 0.94;
+    letter-spacing: -0.035em;
+    margin: 0 0 28px;
+    color: var(--ink);
+  }
+  h1.hero em {
+    font-style: normal;
+    font-weight: 400;
+    background: linear-gradient(180deg, #fff 0%, #a8a89f 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sub {
+    font-size: 17px; line-height: 1.55; font-weight: 400;
+    color: var(--ink-mid); max-width: 440px;
+    letter-spacing: -0.005em;
+  }
+
+  /* live topology name (under sub) */
+  .live-row {
+    margin-top: 36px;
+    display: flex; align-items: center; gap: 16px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .live-name {
+    color: var(--ink);
+    padding: 6px 12px; border: 1px solid var(--ink-faint);
+    border-radius: 4px;
+    min-width: 180px;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .live-name .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  }
+  .live-name .dot.working { background: var(--warm); box-shadow: 0 0 6px var(--warm); animation: blink 0.7s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* ------------- SPECS STRIP (bottom-left) ------------- */
+  .specs {
+    position: fixed; bottom: 44px; left: 64px; z-index: 15;
+    display: flex; gap: 28px; pointer-events: none;
+  }
+  .spec {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: 0.06em;
+    color: var(--ink-mid);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .spec .k { color: var(--ink-dim); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.22em; }
+  .spec .v { color: var(--ink); font-size: 17px; letter-spacing: 0.02em; font-weight: 500; }
+  .spec .v em { font-style: normal; color: var(--ink-mid); font-size: 12px; margin-left: 2px; font-weight: 400; }
+
+  /* bottom-right scroll cue */
+  .scroll-cue {
+    position: fixed; bottom: 52px; right: 64px; z-index: 15;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-dim);
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+    pointer-events: none;
+  }
+  .scroll-cue .bar {
+    width: 36px; height: 1px; background: var(--ink-faint);
+    position: relative; overflow: hidden;
+  }
+  .scroll-cue .bar::after {
+    content: ''; position: absolute; left: -36px; top: 0;
+    width: 36px; height: 1px; background: var(--ink);
+    animation: slide 2.4s linear infinite;
+  }
+  @keyframes slide { to { left: 36px; } }
+
+  /* ------------- PHONE (bottom right as supporting product) ------------- */
+  .phone-wrap {
+    position: fixed; z-index: 12;
+    right: 72px; top: 50%;
+    transform: translateY(-50%) scale(0.88);
+    transform-origin: center right;
+    filter: drop-shadow(-24px 40px 80px rgba(0,0,0,0.7));
+  }
+  .phone {
+    width: 320px; height: 658px;
+    background: #0b0b0c;
+    border-radius: 48px;
+    border: 1.5px solid #2a2a2d;
+    box-shadow:
+      0 40px 100px rgba(0,0,0,0.7),
+      inset 0 0 0 8px #050506,
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    padding: 10px;
+    position: relative;
+  }
+  .phone::before {
+    content: ''; position: absolute;
+    top: 20px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 28px; background: #050506;
+    border-radius: 16px; z-index: 3;
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% 0%, #1a1a1e 0%, #0c0c0e 60%),
+      #0a0a0c;
+  }
+  .status-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 50px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 30px; font-size: 13.5px; font-weight: 600;
+    color: rgba(255,255,255,0.92);
+    letter-spacing: -0.01em;
+  }
+  .status-bar .icons { display: flex; gap: 5px; align-items: center; font-size: 11px; }
+  .icons svg { width: 16px; height: 11px; }
+
+  .app { padding: 60px 20px 22px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
+  .app-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .app-device {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; letter-spacing: 0.22em; color: rgba(201,255,74,0.75);
+    text-transform: uppercase;
+  }
+  .app-time {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; letter-spacing: 0.18em; color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+  }
+  .app-title {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 30px; font-weight: 400; letter-spacing: -0.02em;
+    color: #fff; margin: 6px 0 4px;
+  }
+  .app-sub {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; letter-spacing: 0.14em; color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+
+  .topo-list {
+    display: flex; flex-direction: column; gap: 4px;
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-width: none;
+    /* soft fade at the scroll edges */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 6px, black calc(100% - 6px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, black 6px, black calc(100% - 6px), transparent 100%);
+  }
+  .topo-list::-webkit-scrollbar { width: 0; height: 0; }
+
+  /* Section header between topology groups */
+  .topo-group {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: rgba(255,255,255,0.32);
+    padding: 8px 4px 3px;
+  }
+  .topo-group:first-child { padding-top: 2px; }
+
+  .topo-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topo-row:hover {
+    background: rgba(255,255,255,0.045);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .topo-row.active {
+    background: rgba(201,255,74,0.07);
+    border-color: rgba(201,255,74,0.45);
+    box-shadow: 0 0 0 1px rgba(201,255,74,0.15), 0 4px 16px rgba(201,255,74,0.08);
+  }
+  .topo-row.active .topo-idx { color: var(--accent); }
+  .topo-row.active .topo-name { color: #f4ffe0; }
+  .topo-icon {
+    width: 28px; height: 28px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.3); border-radius: 7px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .topo-icon svg { width: 19px; height: 19px; }
+  .topo-body { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .topo-name {
+    font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,0.88);
+    letter-spacing: -0.01em;
+  }
+  .topo-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+  }
+  .topo-idx {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; color: rgba(255,255,255,0.3);
+    letter-spacing: 0.08em;
+  }
+
+  .app-footer {
+    margin-top: auto; padding-top: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .telemetry {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+  .telemetry .g { display: flex; align-items: center; gap: 8px; }
+  .telemetry .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  }
+  .telemetry .dot.working { background: var(--warm); box-shadow: 0 0 6px var(--warm); animation: blink 0.7s ease-in-out infinite; }
+
+  .home-indicator {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 118px; height: 4px; background: rgba(255,255,255,0.42); border-radius: 2px;
+  }
+
+  /* tiny hint chip */
+  .hint {
+    position: absolute;
+    left: -14px; top: 78px;
+    transform: translateX(-100%);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-mid);
+    white-space: nowrap;
+    transition: opacity 0.4s ease;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .hint .line {
+    width: 56px; height: 1px; background: var(--ink-faint);
+  }
+
+  /* Chrome fade during APPROACH — covers headline, phone, specs, hint */
+  .headline, .phone-wrap, .specs, .hint, .scroll-cue {
+    transition: opacity 0.5s ease;
+  }
+  body.fade-chrome .headline,
+  body.fade-chrome .phone-wrap,
+  body.fade-chrome .specs,
+  body.fade-chrome .hint {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Putting-mode prompt — co-located with scroll-cue, swaps in on AIM */
+  .putt-prompt {
+    position: absolute;
+    left: 50%; bottom: 40px;
+    transform: translateX(-50%);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--ink-mid);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    display: flex; align-items: center; gap: 14px;
+    white-space: nowrap;
+  }
+  .putt-prompt.show { opacity: 0.82; }
+  .putt-prompt .bar {
+    display: inline-block; width: 42px; height: 1px;
+    background: var(--accent); opacity: 0.6;
+  }
+
+  /* Result chip that appears near the hole after a made putt */
+  .result-chip {
+    position: absolute;
+    left: 50%; top: 38%;
+    transform: translate(-50%, -50%) scale(0.9);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; letter-spacing: 0.32em; text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(10,10,11,0.72);
+    border: 1px solid rgba(201,255,74,0.45);
+    padding: 10px 18px;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .result-chip.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .result-chip.miss { color: var(--warm); border-color: rgba(245,193,130,0.45); }
+
+  @media (max-width: 1400px) {
+    h1.hero { font-size: 72px; }
+    .headline { top: 110px; left: 48px; }
+    .specs { left: 48px; }
+    .phone-wrap { right: 48px; }
+  }
+  @media (max-width: 1280px) {
+    h1.hero { font-size: 60px; }
+    .phone { width: 280px; height: 576px; }
+    .phone-wrap { right: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-left">
+    <div class="wordmark"><span class="t">Terra</span><span class="p">Putt</span></div>
+    <div class="pill">TP-01 · Houston</div>
+  </div>
+  <div class="nav-right">
+    <a href="#">Houston</a>
+    <a href="follow.html" class="nav-cta">Follow the Build</a>
+  </div>
+</nav>
+
+<!-- HEADLINE -->
+<div class="headline">
+  <div class="eyebrow">TerraPutt · TP-01 · Houston</div>
+  <div class="eyebrow-sub">Fully outdoor · All seasons</div>
+  <h1 class="hero">The ground,<br><em>on command.</em></h1>
+  <p class="sub">Your backyard, terraformed. A weatherproof outdoor putting green that you can reshape on command. Touch a shape, watch the earth keep up.</p>
+  <div class="live-row">
+    <span class="live-name"><span class="dot" id="liveDot"></span><span id="liveMetric">Level · Baseline</span></span>
+  </div>
+</div>
+
+<!-- STAGE -->
+<div id="stage">
+  <div id="canvas-host"></div>
+</div>
+
+<!-- PHONE -->
+<div class="phone-wrap">
+  <div class="hint" id="hint"><span class="line"></span>Tap a surface</div>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span class="icons">
+          <svg viewBox="0 0 16 10" fill="currentColor"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3.5" y="4" width="2" height="6" rx="0.5"/><rect x="7" y="2" width="2" height="8" rx="0.5"/><rect x="10.5" y="0" width="2" height="10" rx="0.5"/></svg>
+          <svg viewBox="0 0 16 11" fill="currentColor"><path d="M8 2.5 C5.5 2.5 3.5 3.3 2 4.6 L0.5 3 C2.5 1.2 5 0 8 0 C11 0 13.5 1.2 15.5 3 L14 4.6 C12.5 3.3 10.5 2.5 8 2.5 Z"/><circle cx="8" cy="9" r="1.3"/></svg>
+          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="1" width="20" height="10" rx="2"/><rect x="2" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+        </span>
+      </div>
+
+      <div class="app">
+        <div class="app-header">
+          <div class="app-device">● Connected · TP-01-H7</div>
+          <div class="app-time">42°F · 11mph</div>
+        </div>
+        <div class="app-title">Surface</div>
+        <div class="app-sub">Select a topology</div>
+
+        <div class="topo-list" id="topoList"></div>
+
+        <div class="app-footer">
+          <div class="telemetry">
+            <div class="g"><div class="dot" id="telDot"></div><span id="telText">Idle</span></div>
+            <span>0.00 W</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SPECS (bottom left) -->
+<div class="specs">
+  <div class="spec"><span class="k">Actuators</span><span class="v">720</span></div>
+  <div class="spec"><span class="k">Reconfigure</span><span class="v">&lt; 10<em>sec</em></span></div>
+  <div class="spec"><span class="k">All-Weather</span><span class="v">IP66</span></div>
+  <div class="spec"><span class="k">Op Temp</span><span class="v">−10 → 110<em>°F</em></span></div>
+  <div class="spec"><span class="k">UV-Rated</span><span class="v">5,000<em>hr</em></span></div>
+</div>
+
+<div class="scroll-cue">
+  <span id="scrollCueText">Scroll to aim</span>
+  <span class="bar"></span>
+</div>
+
+<!-- Shown only during AIM/SWING -->
+<div class="putt-prompt" id="puttPrompt">
+  <span class="bar"></span>
+  <span id="puttPromptText">Move mouse to aim · Scroll to swing</span>
+  <span class="bar"></span>
+</div>
+
+<!-- Result chip (IN / MISSED) -->
+<div class="result-chip" id="resultChip">IN</div>
+
+<div id="vignette"></div>
+<div id="grain"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
+/* =================================================================
+   TerraPutt Rev B — cinematic stage + reactive green
+   ================================================================= */
+
+/* ---------- Topology library ----------
+   Each entry returns a localized height field. Epicenter is used
+   to seed the actuator wave — the shimmer radiates from there
+   rather than from the origin, so each surface "announces" itself.
+-------------------------------------------------------------------- */
+/* Curated 9-topology library, grouped into three tiers:
+   - Fundamentals: the classic pro drill set (flat, up, down, sidehill)
+   - Features: named green architectures
+   - Signatures: replicas of iconic tour greens — the emotional hook */
+const topologies = [
+  // ---------------- Fundamentals ----------------
+  { id: 'flat',       name: 'Flat',             meta: 'Level · baseline',          group: 'Fundamentals', epi: [0, 0],      fn: () => 0 },
+  // Pure back-to-front climb (positive local-y is away from ball)
+  { id: 'uphill',     name: 'Uphill',           meta: '3% climb to hole',          group: 'Fundamentals', epi: [0, 0],      fn: (x,y) => 0.030 * y },
+  // Pure front-to-back descent
+  { id: 'downhill',   name: 'Downhill',         meta: '3% fall · delicate touch',  group: 'Fundamentals', epi: [0, 0],      fn: (x,y) => -0.030 * y },
+  // Right-to-left cross slope (the 'sidehill break' drill)
+  { id: 'sidehill',   name: 'Sidehill Break',   meta: 'Right-to-left · 3%',        group: 'Fundamentals', epi: [2.0, 0.5],  fn: (x,y) => -0.045 * x + 0.012 * y },
+  // ---------------- Features ----------------
+  // Back mound BEHIND the hole — hole sits at local y=2.6; mound peak
+  // at y=3.9 so the surface kicks up just past the cup (catches long putts)
+  { id: 'backstop',   name: 'Backstop',         meta: 'Back mound · firm speed',   group: 'Features',     epi: [0, 3.9],    fn: (x,y) => 0.34 * Math.exp(-(x*x*0.35 + Math.pow(y-3.9, 2)*0.7)) },
+  // Dished gathering basin
+  { id: 'bowl',       name: 'Center Bowl',      meta: 'Gathering · 3% fall',       group: 'Features',     epi: [0, 0],      fn: (x,y) => -0.22 * Math.exp(-(x*x*0.8 + y*y*0.45) / 2.8) },
+  // Raynor/Macdonald template: two-level step up to the pin
+  { id: 'plateau',    name: 'Double Plateau',   meta: 'Two-level · 6in rise',      group: 'Features',     epi: [0, 1.2],    fn: (x,y) => 0.28 / (1 + Math.exp(-(y - 0.6) * 2.4)) - 0.14 },
+  // ---------------- Signatures ----------------
+  // Augusta 12th "Golden Bell": aggressive back-to-front + front false-front lip
+  { id: 'goldenbell', name: 'Golden Bell',      meta: 'Augusta 12 · false front',  group: 'Signatures',   epi: [0, -2.8],   fn: (x,y) => 0.055 * y + 0.050 * Math.exp(-(x*x*0.3 + Math.pow(y + 2.8, 2)*2.2)) },
+  // Pinehurst crown: domed green that repels the ball in every direction
+  { id: 'pinehurst',  name: 'Pinehurst Crown',  meta: 'Crowned · rejects all',     group: 'Signatures',   epi: [0, 0],      fn: (x,y) => 0.22 * Math.exp(-(x*x + y*y) / 8) }
+];
+
+const icons = {
+  flat:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 13 L21 13"/><path d="M3 17 L21 17" opacity="0.35"/></svg>`,
+  uphill:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 20 L21 20" opacity="0.35"/><path d="M3 17 L21 7"/><path d="M17 7 L21 7 L21 11"/></svg>`,
+  downhill:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 20 L21 20" opacity="0.35"/><path d="M3 7 L21 17"/><path d="M17 17 L21 17 L21 13"/></svg>`,
+  sidehill:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 20 L21 20" opacity="0.35"/><path d="M3 16 L21 10"/><path d="M6 8 Q 12 11 18 14" opacity="0.6"/></svg>`,
+  backstop:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 17 L21 17" opacity="0.35"/><path d="M3 15 Q 9 6 15 15 L21 15"/></svg>`,
+  bowl:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 13 L21 13" opacity="0.35"/><path d="M3 11 Q 12 22 21 11"/></svg>`,
+  plateau:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 17 L12 17 L12 10 L21 10"/><path d="M3 20 L21 20" opacity="0.35"/></svg>`,
+  goldenbell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 20 L21 20" opacity="0.35"/><path d="M3 17 Q 6 17 8 15 L10 13 L18 5"/></svg>`,
+  pinehurst:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 20 L21 20" opacity="0.35"/><path d="M3 17 Q 12 3 21 17"/></svg>`
+};
+
+/* ---------- State ---------- */
+let activeId   = 'flat';
+let fromId     = 'flat';
+let toId       = 'flat';
+let transStart = -1;
+const T_ANTICIPATE = 0.28;
+const T_DOWN       = 0.55;
+const T_HOLD       = 0.45;
+const T_UP         = 0.75;
+const T_SETTLE     = 0.30;
+const T_TOTAL = T_ANTICIPATE + T_DOWN + T_HOLD + T_UP + T_SETTLE;
+
+/* ---------- Interactive putting state ----------
+   Wheel drives a cumulative scalar wheelProgress:
+     0.0          = hero idle orbit
+     (0,  1.0)    = APPROACH — camera lerping toward the ball
+     1.0          = parked behind ball — AIM
+     (1.0, 2.0)   = SWING — putter arcing through impact
+   Mouse x (only during AIM) drives aimYaw. */
+const S_HERO = 0, S_APPROACH = 1, S_AIM = 2, S_SWING = 3, S_ROLL = 4, S_RESULT = 5;
+let gameState = S_HERO;
+let wheelProgress = 0;
+let wheelProgressTarget = 0;    // eased via lerp toward this per-frame
+let wheelSpeedEMA = 0;          // smoothed |deltaY| → used as swing-velocity proxy
+let pointerX = 0;               // [-1, +1] relative to viewport center
+let aimYawTarget = 0;
+let aimYaw = 0;                 // radians, rotation around world Y
+let ballVel = new THREE.Vector3(0, 0, 0);
+let ballHome = new THREE.Vector3(-1.4, 0.04, 3.2);
+let ballSettleCount = 0;
+let rollStartTime = -1;
+let swingImpactFired = false;
+let resultKind = null;          // 'holed' | 'missed'
+let resultStart = -1;
+let holeCaptureY = 0;           // base Y for ball drop animation when holed
+
+// Tunables — collected here for easy iteration
+const DEG = Math.PI / 180;
+const APPROACH_K     = 0.0015;   // wheel deltaY → wheelProgress in APPROACH
+const SWING_K        = 0.0025;   // same, during SWING
+const WHEEL_CLAMP    = 120;      // per-event deltaY clamp
+const MAX_AIM        = 24 * DEG; // total aim half-arc (each side)
+const IMPACT_K       = 0.055;    // wheelSpeedEMA → ball speed (m/s) at impact
+const V_MIN          = 0.6;      // m/s floor when any swing fires
+const V_MAX          = 5.5;      // m/s ceiling
+const HOLE_CAPTURE_R = 0.13;
+const HOLE_CAPTURE_V_MAX = 2.4;
+const EDGE_LEAVE_RN  = 1.03;
+const ROLL_TIMEOUT   = 10.0;
+
+// Camera waypoints
+const CAM_AIM_POS  = new THREE.Vector3(-1.68, 0.42, 4.36);
+const CAM_AIM_LOOK = new THREE.Vector3(0.0, 0.10, -2.6);
+
+// Physics (cannon-es)
+// Higher PHYS_GRID = smaller triangles = less discretization "bumpiness"
+// as the sphere rolls across triangle edges of the heightfield.
+const PHYS_GRID     = 140;       // heightfield resolution per side (~10cm cells)
+const PHYS_RANGE    = 7.0;       // world half-extent the heightfield covers (±this)
+const BALL_RADIUS   = 0.060;
+const BALL_MASS     = 0.046;     // kg — standard golf ball
+const BALL_LIN_DAMP = 0.04;      // light air drag
+const BALL_ANG_DAMP = 0.18;      // modest spin decay
+const TURF_FRICTION = 0.16;      // turf ↔ ball contact friction (lower = less drift torque)
+const TURF_RESTIT   = 0.0;       // no bounce on a putting green
+let physWorld       = null;
+let ballBody        = null;
+let terrainBody     = null;
+let ballMat         = null;
+let turfMat         = null;
+
+function byId(id) { return topologies.find(t => t.id === id); }
+
+/* ---------- Build phone UI ---------- */
+const list = document.getElementById('topoList');
+let __lastGroup = null;
+let __rowIdx = 0;
+topologies.forEach((t) => {
+  if (t.group !== __lastGroup) {
+    const hdr = document.createElement('div');
+    hdr.className = 'topo-group';
+    hdr.textContent = t.group;
+    list.appendChild(hdr);
+    __lastGroup = t.group;
+  }
+  __rowIdx++;
+  const row = document.createElement('div');
+  row.className = 'topo-row' + (t.id === activeId ? ' active' : '');
+  row.dataset.id = t.id;
+  row.innerHTML = `
+    <div class="topo-icon">${icons[t.id]}</div>
+    <div class="topo-body">
+      <div class="topo-name">${t.name}</div>
+      <div class="topo-meta">${t.meta}</div>
+    </div>
+    <div class="topo-idx">${String(__rowIdx).padStart(2, '0')}</div>
+  `;
+  row.addEventListener('click', () => selectTopology(t.id, true));
+  list.appendChild(row);
+});
+const liveMetric = document.getElementById('liveMetric');
+const liveDot    = document.getElementById('liveDot');
+/* Per-topology headline metric — surface-specific info the phone doesn't
+   duplicate. */
+const topoMetrics = {
+  flat:       'Level · Baseline',
+  uphill:     'Climb 3.0° · Pure Up',
+  downhill:   'Fall 3.0° · Delicate Touch',
+  sidehill:   'Tilt 3.2° R→L',
+  backstop:   'Rise 4.1in · Backstop',
+  bowl:       'Dip 2.6in · 3% Gather',
+  plateau:    'Step 6.0in · Two-Level',
+  goldenbell: 'Grade 5.5° · False Front',
+  pinehurst:  'Crown 8in · Rejects All Sides'
+};
+function formatMetric(id) {
+  return topoMetrics[id] || byId(id).name;
+}
+const telText  = document.getElementById('telText');
+const telDot   = document.getElementById('telDot');
+const hint     = document.getElementById('hint');
+
+function selectTopology(id, userInitiated) {
+  if (id === toId && transStart < 0) return;
+  fromId = activeId;
+  toId = id;
+  transStart = performance.now() / 1000;
+  if (userInitiated) hint.style.opacity = 0;
+  document.querySelectorAll('.topo-row').forEach(r => {
+    r.classList.toggle('active', r.dataset.id === id);
+  });
+  telText.textContent = 'Reconfiguring · ' + byId(id).name;
+  telDot.classList.add('working');
+  liveMetric.textContent = formatMetric(id);
+  liveDot.classList.add('working');
+}
+
+/* =================================================================
+   THREE.js scene
+   ================================================================= */
+let scene, camera, renderer, green, geometry, actuators;
+let flag, flagGroup, ballPos, ballMesh;
+let holeRim, holeInner, holePosVec;
+let groundFloor;
+
+const SEGMENTS = 200;
+const SIZE = 14;
+const R_BASE = 4.4;
+
+/* Organic, elongated footprint — longer along local-Y axis (which
+   becomes world front-back after the mesh's -PI/2 X rotation), so
+   the green reads as a classic putting oval with the ball at the
+   front and the hole cut toward the back. */
+function edgeShape(theta) {
+  const base = 1.0
+    + 0.10 * Math.sin(2 * theta - 0.6)
+    + 0.04 * Math.sin(3 * theta + 1.8);
+  // Stretch along local Y (sin(theta)^2 weights the ±Y direction)
+  const stretch = 1.0 + 0.42 * Math.pow(Math.sin(theta), 2);
+  return base * stretch;
+}
+
+/* Simple 2D hash noise for surface bumpiness */
+function hash2(x, y) {
+  const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+function turfBump(x, y) {
+  // Sum of high-freq noise layers — small amplitude, just enough to
+  // catch the rim light. Not a displacement of the putting grade.
+  // Halved from the hero-shot defaults so close-ups (chase cam) don't
+  // read as gravel.
+  const a = (hash2(Math.round(x*14), Math.round(y*14)) - 0.5) * 0.005;
+  const b = (hash2(Math.round(x*28), Math.round(y*28)) - 0.5) * 0.0025;
+  return a + b;
+}
+
+let topoGrid, topoGridLines = [];
+
+function buildTopoGrid() {
+  topoGrid = new THREE.Group();
+  // Grid lines sweep across the green, each made of many sample points.
+  // We store the canonical (x, z) path for each line in userData and
+  // resample the LIVE turf height at each point per-frame so the grid
+  // sits flush on the surface instead of floating above.
+  const N_LINES = 19;
+  const SAMPLES = 128;
+  // Generous range so lines extend beyond the max edgeShape stretch
+  // (~1.38). We clamp to the actual edge per-point at render time.
+  const range = R_BASE * 1.5;
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x7df9ff, transparent: true, opacity: 0,
+    depthTest: true, depthWrite: false
+  });
+
+  for (let li = 0; li < N_LINES; li++) {
+    const f = (li / (N_LINES - 1)) * 2 - 1;
+    const fixed = f * range;
+    // U-line: z = fixed, x sweeps
+    const pathU = [];
+    for (let s = 0; s < SAMPLES; s++) {
+      const t = (s / (SAMPLES - 1)) * 2 - 1;
+      pathU.push([t * range, fixed]);
+    }
+    const gU = new THREE.BufferGeometry();
+    gU.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAMPLES * 3), 3));
+    const lU = new THREE.Line(gU, mat.clone());
+    lU.renderOrder = 10;
+    lU.userData = { path: pathU };
+    topoGrid.add(lU);
+    topoGridLines.push(lU);
+
+    // V-line: x = fixed, z sweeps
+    const pathV = [];
+    for (let s = 0; s < SAMPLES; s++) {
+      const t = (s / (SAMPLES - 1)) * 2 - 1;
+      pathV.push([fixed, t * range]);
+    }
+    const gV = new THREE.BufferGeometry();
+    gV.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAMPLES * 3), 3));
+    const lV = new THREE.Line(gV, mat.clone());
+    lV.renderOrder = 10;
+    lV.userData = { path: pathV };
+    topoGrid.add(lV);
+    topoGridLines.push(lV);
+  }
+  scene.add(topoGrid);
+}
+
+/* Sample the live turf height at world-space (x, z). The green mesh
+   uses rotation.x = -PI/2, which maps its local (X, Y) to world
+   (X, 0, -Y). edgeShape + fn were defined in LOCAL space, so we
+   must invert the z sign when querying them from world coords. */
+function sampleTurfHeight(x, z, fn, intensity) {
+  const localY = -z;
+  const theta = Math.atan2(localY, x);
+  const R = R_BASE * edgeShape(theta);
+  const r = Math.sqrt(x*x + z*z);
+  const rn = r / R;
+  let h = fn(x, localY) * intensity;
+  // MUST match updateGeometry's fade (rn>0.72 quintic). Mismatch bug:
+  // blades/ball/hole were using a later/softer fade (0.84 cubic), so
+  // for LINEAR topologies like Cross Slope — where fn stays non-zero
+  // at the edge — the blades sat BELOW the already-faded mesh and
+  // got buried in the turf (visible as bare patches in screenshots).
+  if (rn >= 1.0) {
+    h = 0;
+  } else if (rn > 0.72) {
+    const f = (rn - 0.72) / 0.28;
+    const e = f*f*f*(f*(f*6 - 15) + 10); // quintic smoothstep
+    h = h * (1 - e);
+  }
+  h += turfBump(x, localY);
+  return { h, rn, R, theta };
+}
+
+function updateTopoGrid(fn, intensity, gridOpacity) {
+  if (!topoGrid) return;
+  const GREEN_BASE_Y = 0.015; // must match green.position.y
+  const LIFT = 0.025;         // sits clearly on turf
+  for (const line of topoGridLines) {
+    line.material.opacity = gridOpacity;
+    if (gridOpacity < 0.001) continue;
+    const posAttr = line.geometry.attributes.position;
+    const arr = posAttr.array;
+    const path = line.userData.path;
+    for (let i = 0; i < path.length; i++) {
+      let [x, z] = path[i];
+      const s = sampleTurfHeight(x, z, fn, intensity);
+      let sx = x, sz = z;
+      if (s.rn > 1.0) {
+        // theta is in local space; map back to world (localY = -z)
+        sx = Math.cos(s.theta) * s.R;
+        sz = -Math.sin(s.theta) * s.R;
+      }
+      const s2 = sampleTurfHeight(sx, sz, fn, intensity);
+      arr[i*3]     = sx;
+      arr[i*3 + 1] = GREEN_BASE_Y + s2.h + LIFT;
+      arr[i*3 + 2] = sz;
+    }
+    posAttr.needsUpdate = true;
+    line.geometry.computeBoundingSphere();
+  }
+}
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = null;
+  scene.fog = new THREE.Fog(0x0a0a0c, 20, 55);
+
+  const host = document.getElementById('canvas-host');
+  const w = host.clientWidth, h = host.clientHeight;
+
+  camera = new THREE.PerspectiveCamera(28, w/h, 0.1, 200);
+  camera.position.set(4.3, 2.6, 10.3);
+  camera.lookAt(0.2, 0.4, 0.2);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  host.appendChild(renderer.domElement);
+
+  /* ---------- Studio floor — a large warm-gray plane
+       so the green reads as sitting ON something, not floating.
+       Color dropped (1a1a1c → 0b0b0d) after the key light moved
+       behind the scene: the near-camera half of the floor now
+       catches direct light and was competing with the headline. ---------- */
+  const floorGeom = new THREE.PlaneGeometry(120, 120, 1, 1);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x0b0b0d, roughness: 0.98, metalness: 0.0
+  });
+  groundFloor = new THREE.Mesh(floorGeom, floorMat);
+  groundFloor.rotation.x = -Math.PI / 2;
+  groundFloor.position.y = -0.45;
+  groundFloor.receiveShadow = true;
+  scene.add(groundFloor);
+
+  /* ---------- Contact shadow disc (faux AO) ---------- */
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = 512; shadowCanvas.height = 512;
+  const sctx = shadowCanvas.getContext('2d');
+  // irregular shadow shape that roughly matches the green footprint
+  sctx.fillStyle = 'rgba(0,0,0,0)';
+  sctx.fillRect(0, 0, 512, 512);
+  const grad = sctx.createRadialGradient(256, 256, 60, 256, 256, 240);
+  grad.addColorStop(0, 'rgba(0,0,0,0.62)');
+  grad.addColorStop(0.45, 'rgba(0,0,0,0.32)');
+  grad.addColorStop(0.85, 'rgba(0,0,0,0.06)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  sctx.fillStyle = grad;
+  sctx.fillRect(0, 0, 512, 512);
+  const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+  const shadowDisc = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 12),
+    new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
+  );
+  shadowDisc.rotation.x = -Math.PI / 2;
+  shadowDisc.position.set(0.8, -0.44, 0.4);
+  scene.add(shadowDisc);
+
+  /* ---------- The putting green itself ---------- */
+  geometry = new THREE.PlaneGeometry(SIZE, SIZE, SEGMENTS, SEGMENTS);
+  const pos = geometry.attributes.position;
+
+  // ------------------------------------------------------------------
+  // Edge snap: for each vertex, detect the grid cells that straddle
+  // the organic boundary by walking to the nearest neighbor; any
+  // vertex that sits OUTSIDE the boundary AND has an INSIDE neighbor
+  // gets pulled radially inward to exactly lie on edgeShape(theta).
+  // This produces a smooth silhouette instead of mesh-sawtooth.
+  // ------------------------------------------------------------------
+  const V = SEGMENTS + 1; // verts per row
+  const step = SIZE / SEGMENTS;
+  function rnAt(x, y) {
+    const r = Math.sqrt(x*x + y*y);
+    const theta = Math.atan2(y, x);
+    const R = R_BASE * edgeShape(theta);
+    return r / R;
+  }
+  // Snap EVERY outside vertex (rn > 1) radially to the exact edge
+  // curve. This collapses outside triangles to zero-area slivers ON
+  // the boundary, so no spikes or tags stick out past the silhouette.
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i);
+    const rn = rnAt(x, y);
+    if (rn <= 1.0) continue;
+    const theta = Math.atan2(y, x);
+    const R = R_BASE * edgeShape(theta);
+    pos.setX(i, Math.cos(theta) * R);
+    pos.setY(i, Math.sin(theta) * R);
+  }
+
+  const colorArr = new Float32Array(pos.count * 3);
+  const rnArr = new Float32Array(pos.count);
+  const bumpArr = new Float32Array(pos.count); // baked bump per-vertex
+  const stripeArr = new Float32Array(pos.count);
+
+  const cMowLight = new THREE.Color(0x4a9b52); // cool emerald — sunlit band
+  const cMowDark  = new THREE.Color(0x1f5a2c); // deep green — shadow band (no olive)
+  const cCollar   = new THREE.Color(0x2d4e22); // collar: a touch warmer than putting surface
+  const cCollarDk = new THREE.Color(0x1a2f16); // shadow side of collar
+  const cFringe   = new THREE.Color(0x0a1408); // fringe stays dark/neutral
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const r = Math.sqrt(x*x + y*y);
+    const theta = Math.atan2(y, x);
+    const R = R_BASE * edgeShape(theta);
+    const rn = r / R;
+    rnArr[i] = rn;
+    bumpArr[i] = turfBump(x, y);
+
+    // Mowing stripes — with drift so the mower "wandered". Low-freq
+    // lateral wobble in the phase (stripes bow slightly) and per-band
+    // amplitude variation (some stripes crisper than others).
+    const wobble = Math.sin(y * 0.9) * 0.35 + Math.sin(y * 2.3 + 1.1) * 0.18 + Math.sin(x * 0.6 + 2.7) * 0.22;
+    const stripePhase = (x * 0.85 + y * 0.22) * 2.4 + wobble;
+    // Soft tint only — the painted high-contrast stripes created a
+    // woven-mat look by making the green read flat between blades.
+    // With blade lean now driving the stripe effect via geometry,
+    // the base mesh only needs a gentle tonal variation to avoid
+    // showing a solid color between blades.
+    const stripe = 0.5 + 0.18 * Math.sin(stripePhase);
+    stripeArr[i] = stripe;
+    let base = cMowLight.clone().lerp(cMowDark, stripe);
+
+    // Painterly multi-octave jitter — breaks the flat-plane look and
+    // restores the broken-color depth of the earlier version. Three
+    // octaves so no single frequency dominates.
+    const j1 = (hash2(Math.round(x*10), Math.round(y*10)) - 0.5) * 0.095;
+    const j2 = (hash2(Math.round(x*26), Math.round(y*26)) - 0.5) * 0.055;
+    const j3 = (hash2(Math.round(x*52), Math.round(y*52)) - 0.5) * 0.032;
+    const j = j1 + j2 + j3;
+    base.r = Math.max(0, Math.min(1, base.r + j * 0.50));
+    base.g = Math.max(0, Math.min(1, base.g + j * 0.78));
+    base.b = Math.max(0, Math.min(1, base.b + j * 0.36));
+
+    // Subtle lighter/darker clumps — where the mower left wheel marks
+    const clump = hash2(Math.round(x*4.5)*7, Math.round(y*4.5)*3);
+    if (clump > 0.93) {
+      base.r += 0.04; base.g += 0.055; base.b += 0.025;
+    } else if (clump < 0.07) {
+      base.r -= 0.025; base.g -= 0.042; base.b -= 0.022;
+    }
+
+    // Sun-side brightening — luminance-only, NO hue shift toward
+    // yellow. Warm yellow tint made the green look diseased/olive.
+    // Just lift the whole color slightly on the key-light side.
+    // Light now sits behind the green (world -Z). Local Y = -world Z,
+    // so "sun side" is high local-Y + negative local-X (upper-left in
+    // local space, back-left of green in world). Coefs match the new
+    // normalized horizontal light direction of (-0.76, 0.65) in local XY.
+    const sunDot = (-x * 0.76 + y * 0.65) / R_BASE; // -1..1-ish
+    const sunT = Math.max(0, Math.min(1, 0.5 + sunDot * 0.55));
+    const sunLift = sunT * 0.045;
+    base.r = Math.min(1, base.r + sunLift * 0.6);
+    base.g = Math.min(1, base.g + sunLift * 1.0);
+    base.b = Math.min(1, base.b + sunLift * 0.6);
+
+    let col;
+    // Green proper (inside putting surface)
+    if (rn < 0.80) {
+      col = base;
+    } else if (rn < 0.86) {
+      // Quick transition from putting surface to collar (sharp mow line)
+      const f = (rn - 0.80) / 0.06;
+      const e = f*f*(3 - 2*f);
+      col = base.clone().lerp(cCollar, e);
+    } else if (rn < 0.94) {
+      // COLLAR RING — the visible band of longer grass around the green
+      // Tiny stripe cue so the collar doesn't look flat, but much more
+      // muted than the putting surface
+      const collarStripe = cCollar.clone().lerp(cCollarDk, stripe * 0.5);
+      col = collarStripe;
+    } else {
+      // Rough / fringe — darker, falls off to edge
+      const f = Math.min(1, (rn - 0.94) / 0.06);
+      const e = f*f*(3 - 2*f);
+      col = cCollarDk.clone().lerp(cFringe, e);
+    }
+    colorArr[i*3]   = col.r;
+    colorArr[i*3+1] = col.g;
+    colorArr[i*3+2] = col.b;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+  geometry.userData = { rnArr, bumpArr, stripeArr, baseColorArr: colorArr.slice() };
+
+  // Cull tris where ALL verts are exactly on the edge (they snapped
+  // to a shared boundary, forming zero-area slivers) or fully outside.
+  const origIdx = geometry.getIndex();
+  const newIdx = [];
+  for (let t = 0; t < origIdx.count; t += 3) {
+    const a = origIdx.array[t], b = origIdx.array[t+1], c = origIdx.array[t+2];
+    // keep if AT LEAST ONE vertex is strictly inside
+    if (rnArr[a] < 0.999 || rnArr[b] < 0.999 || rnArr[c] < 0.999) {
+      newIdx.push(a, b, c);
+    }
+  }
+  geometry.setIndex(newIdx);
+
+  // PBR turf normal map — isotropic fine-grain only. The OLD version
+  // baked stripe lanes and fiber columns at a fixed 14× repeat,
+  // which produced visible woven-mat bands when tiled. With real
+  // blade instances doing the anisotropic work now, the normal map
+  // only needs to break up micro-highlights. So just random dots.
+  const nCanvas = document.createElement('canvas');
+  nCanvas.width = 512; nCanvas.height = 512;
+  const nctx = nCanvas.getContext('2d');
+  nctx.fillStyle = 'rgb(128,128,255)';
+  nctx.fillRect(0, 0, 512, 512);
+  const nImg = nctx.getImageData(0, 0, 512, 512);
+  const nd = nImg.data;
+  for (let py = 0; py < 512; py++) {
+    for (let px = 0; px < 512; px++) {
+      const i4 = (py * 512 + px) * 4;
+      // tiny isotropic speckle, no directional pattern
+      const dx = (Math.random() - 0.5) * 18;
+      const dy = (Math.random() - 0.5) * 18;
+      nd[i4]     = Math.max(0, Math.min(255, 128 + dx));
+      nd[i4 + 1] = Math.max(0, Math.min(255, 128 + dy));
+      nd[i4 + 2] = 255;
+      nd[i4 + 3] = 255;
+    }
+  }
+  nctx.putImageData(nImg, 0, 0);
+  const grassNormalTex = new THREE.CanvasTexture(nCanvas);
+  grassNormalTex.wrapS = grassNormalTex.wrapT = THREE.RepeatWrapping;
+  grassNormalTex.repeat.set(32, 32); // higher repeat = finer grain, harder to see seams
+  grassNormalTex.anisotropy = 16;
+
+  // Roughness map — uniform noise, no stripe bias. Stripes are done
+  // by geometry now; adding a second rhythm here made crosshatch.
+  const rCanvas = document.createElement('canvas');
+  rCanvas.width = 256; rCanvas.height = 256;
+  const rctx = rCanvas.getContext('2d');
+  const rImg = rctx.createImageData(256, 256);
+  for (let py = 0; py < 256; py++) {
+    for (let px = 0; px < 256; px++) {
+      const i4 = (py * 256 + px) * 4;
+      const n = Math.random() * 30;
+      const v = Math.max(180, Math.min(240, 210 + n - 15));
+      rImg.data[i4] = v; rImg.data[i4+1] = v; rImg.data[i4+2] = v; rImg.data[i4+3] = 255;
+    }
+  }
+  rctx.putImageData(rImg, 0, 0);
+  const grassRoughTex = new THREE.CanvasTexture(rCanvas);
+  grassRoughTex.wrapS = grassRoughTex.wrapT = THREE.RepeatWrapping;
+  grassRoughTex.repeat.set(32, 32);
+  grassRoughTex.anisotropy = 16;
+
+  // MeshLambertMaterial — NO specular at all. Even at roughness 0.98
+  // MeshStandardMaterial has Fresnel spike at grazing angles, producing
+  // a visible glossy highlight band on the near/far rims that washed
+  // out the blades. Lambert is pure diffuse; turf is effectively
+  // Lambertian at this scale anyway.
+  const mat = new THREE.MeshLambertMaterial({
+    vertexColors: true,
+    emissive: 0x000000,
+    emissiveIntensity: 0
+  });
+  // Lambert doesn't use roughnessMap; grassRoughTex is unused here.
+  // Normal map still works on Lambert for micro-variation without
+  // introducing specular reflection.
+  mat.normalMap = grassNormalTex;
+  mat.normalScale = new THREE.Vector2(0.35, 0.35);
+
+  // The anisotropic onBeforeCompile hook targeted StandardMaterial's
+  // shader chunks (<dithering_fragment>). Lambert has the same chunk
+  // so the hook still compiles, but we've zeroed uGlintGain anyway.
+  // Leave the hook in place so shader-uniform wiring stays stable.
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uKeyDir = { value: new THREE.Vector3(-7, 3.6, -6).normalize() };
+    shader.uniforms.uKeyColor = { value: new THREE.Color(0xfff4d8) }; // neutral warm white — no yellow bias
+    shader.uniforms.uStripeDir = { value: new THREE.Vector3(0.85, 0, 0.22).normalize() };
+    shader.uniforms.uStripePeriod = { value: 2.4 };
+    shader.uniforms.uAniso = { value: 0.85 }; // alphaX
+    shader.uniforms.uAnisoPerp = { value: 0.18 }; // alphaY
+    shader.uniforms.uGlintGain = { value: 0.0 };
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vWorldPosAniso;
+       varying vec3 vWorldNormalAniso;`
+    ).replace(
+      '#include <worldpos_vertex>',
+      `#include <worldpos_vertex>
+       vWorldPosAniso = (modelMatrix * vec4(transformed, 1.0)).xyz;
+       vWorldNormalAniso = normalize(mat3(modelMatrix) * objectNormal);`
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vWorldPosAniso;
+       varying vec3 vWorldNormalAniso;
+       uniform vec3 uKeyDir;
+       uniform vec3 uKeyColor;
+       uniform vec3 uStripeDir;
+       uniform float uStripePeriod;
+       uniform float uAniso;
+       uniform float uAnisoPerp;
+       uniform float uGlintGain;`
+    ).replace(
+      '#include <dithering_fragment>',
+      `
+       // ---- Anisotropic Ward-style specular ----
+       vec3 Nw = normalize(vWorldNormalAniso);
+       vec3 Vw = normalize(cameraPosition - vWorldPosAniso);
+       vec3 Lw = normalize(uKeyDir);
+       vec3 Hw = normalize(Lw + Vw);
+
+       // Stripe band sign — which way blades lean on this band.
+       // Stripe coord: same phase formula as CPU-side mowing stripes
+       float stripeCoord = (vWorldPosAniso.x * 0.85 + vWorldPosAniso.z * 0.22) * uStripePeriod;
+       float stripeSign = sign(sin(stripeCoord));
+
+       // Tangent on the surface along stripe direction, flipped per-band
+       vec3 T = normalize(uStripeDir - Nw * dot(Nw, uStripeDir)) * stripeSign;
+       vec3 B = normalize(cross(Nw, T));
+
+       float NdotL = max(dot(Nw, Lw), 0.0);
+       float NdotH = max(dot(Nw, Hw), 0.0);
+       float NdotV = max(dot(Nw, Vw), 0.0);
+       float HdotT = dot(Hw, T);
+       float HdotB = dot(Hw, B);
+
+       float exponent = -( (HdotT*HdotT)/(uAniso*uAniso) + (HdotB*HdotB)/(uAnisoPerp*uAnisoPerp) ) / max(NdotH*NdotH, 0.001);
+       float wardDenom = 4.0 * 3.14159 * uAniso * uAnisoPerp * sqrt(max(NdotL * NdotV, 0.001));
+       float ward = exp(exponent) / wardDenom;
+
+       // Blade-density hash — turf isn't a mirror; glints are sparse.
+       float blade = fract(sin(dot(vWorldPosAniso.xz * 97.0, vec2(12.9898, 78.233))) * 43758.5);
+       float sparkle = smoothstep(0.55, 1.0, blade);
+
+       vec3 anisoSpec = uKeyColor * ward * NdotL * uGlintGain * (0.25 + 0.75 * sparkle);
+       gl_FragColor.rgb += anisoSpec;
+
+       #include <dithering_fragment>`
+    );
+    mat.userData.shader = shader;
+  };
+  green = new THREE.Mesh(geometry, mat);
+  green.rotation.x = -Math.PI / 2;
+  green.position.y = 0.015;
+  green.receiveShadow = true;
+  green.castShadow = true;
+  scene.add(green);
+
+  /* ---------- Instanced blade geometry — real 3D grass ----------
+     ~24k small blade instances scattered across the green's footprint.
+     Each blade is a 3-tri tapered strip standing in world +Y. Per-
+     instance: position on turf, slight rotation, height/width jitter,
+     color tinted by the mowing-stripe phase it sits in. Shells and
+     painted stripes are gone — the green's visible texture is now
+     produced by the blade silhouettes themselves. */
+  {
+    // -- Blade geometry: a 3-segment tapered strip, 6 verts / 4 tris
+    //    v4 _ v5    (tip, narrow)
+    //     | /|
+    //    v2|_v3    (mid)
+    //     |/ |
+    //    v0|_v1    (base, wide)
+    // Using a thin ribbon; seen edge-on it's a line, head-on a blade.
+    const bladeGeom = new THREE.BufferGeometry();
+    const H = 1.0; // unit height — scaled per-instance
+    const bladeVerts = new Float32Array([
+      -0.50,  0.00, 0,   // v0 base L
+       0.50,  0.00, 0,   // v1 base R
+      -0.42,  0.50, 0,   // v2 mid L
+       0.42,  0.50, 0,   // v3 mid R
+      -0.12,  0.90, 0,   // v4 upper L
+       0.12,  0.90, 0,   // v5 upper R
+       0.00,  1.00, 0,   // v6 tip
+    ]);
+    const bladeIdx = new Uint16Array([
+      0,1,2,  1,3,2,
+      2,3,4,  3,5,4,
+      4,5,6,
+    ]);
+    const bladeUV = new Float32Array([
+      0,0, 1,0,  0,0.5, 1,0.5,  0,0.9, 1,0.9,  0.5,1
+    ]);
+    bladeGeom.setAttribute('position', new THREE.BufferAttribute(bladeVerts, 3));
+    bladeGeom.setAttribute('uv', new THREE.BufferAttribute(bladeUV, 2));
+    bladeGeom.setIndex(new THREE.BufferAttribute(bladeIdx, 1));
+    bladeGeom.computeVertexNormals();
+
+    const BLADE_COUNT = 240000;
+    const bladeInst = new THREE.InstancedMesh(
+      bladeGeom,
+      (() => {
+        const m = new THREE.MeshStandardMaterial({
+          vertexColors: false,
+          color: 0xffffff,      // modulated by instanceColor
+          roughness: 0.78,
+          metalness: 0.0,
+          side: THREE.DoubleSide,
+          transparent: false,
+          flatShading: false,
+        });
+        // Inject per-instance tint via onBeforeCompile → use built-in
+        // instanceColor — three.js handles the attribute automatically
+        // when we call setColorAt. So no custom shader needed.
+        return m;
+      })(),
+      BLADE_COUNT
+    );
+    bladeInst.castShadow = false;
+    bladeInst.receiveShadow = false; // was true — caused a crescent-shaped "cutoff" as shadow map resolution lost tiny blades in shadow
+    bladeInst.frustumCulled = false;
+
+    // Allocate per-blade records so we can update positions on topology
+    // changes without rebuilding random jitter each time.
+    const bladeRecords = new Array(BLADE_COUNT);
+
+    // Sample stripe + base color consistent with the mesh's baked colors
+    function sampleBladeColor(localX, localY) {
+      // same formulas as mesh coloring block above
+      const wobble = Math.sin(localY * 0.9) * 0.35 + Math.sin(localY * 2.3 + 1.1) * 0.18 + Math.sin(localX * 0.6 + 2.7) * 0.22;
+      const stripePhase = (localX * 0.85 + localY * 0.22) * 2.4 + wobble;
+      // Soft smooth tint only — the visible stripe comes from blade
+      // LEAN (geometry), not from painted bands. High-contrast band
+      // color is what created the woven-mat look; kill it.
+      const stripe = 0.5 + 0.18 * Math.sin(stripePhase);
+      const base = cMowLight.clone().lerp(cMowDark, stripe);
+      // multi-octave jitter to break uniformity
+      const j1 = (hash2(Math.round(localX*10), Math.round(localY*10)) - 0.5) * 0.095;
+      const j2 = (hash2(Math.round(localX*26), Math.round(localY*26)) - 0.5) * 0.055;
+      const j = j1 + j2;
+      base.r = Math.max(0, Math.min(1, base.r + j * 0.5));
+      base.g = Math.max(0, Math.min(1, base.g + j * 0.78));
+      base.b = Math.max(0, Math.min(1, base.b + j * 0.36));
+      // Luminance-only sun lift — no warm yellow tint (looked diseased)
+      const sunDot = (-localX * 0.76 + localY * 0.65) / R_BASE;
+      const sunT = Math.max(0, Math.min(1, 0.5 + sunDot * 0.55));
+      const sunLift = sunT * 0.045;
+      base.r = Math.min(1, base.r + sunLift * 0.6);
+      base.g = Math.min(1, base.g + sunLift * 1.0);
+      base.b = Math.min(1, base.b + sunLift * 0.6);
+      return base;
+    }
+
+    const dummy = new THREE.Object3D();
+    const tmpColor = new THREE.Color();
+    let bi = 0;
+    let attempts = 0;
+    // Bounding box must cover the MAX of edgeShape(theta). The stretch
+    // term (0.42 * sin^2) pushes the edge to ~1.42 along local ±Y, so
+    // sampling at 1.05 left a crescent-shaped zone near front/back of
+    // the green where the mesh existed but no blades were seeded —
+    // visible as a hard cutoff at the bottom-left edge.
+    const SAMPLE_EDGE = 1.5;
+    while (bi < BLADE_COUNT && attempts < BLADE_COUNT * 10) {
+      attempts++;
+      const lx = (Math.random() - 0.5) * 2 * R_BASE * SAMPLE_EDGE;
+      const ly = (Math.random() - 0.5) * 2 * R_BASE * SAMPLE_EDGE;
+      const r = Math.sqrt(lx*lx + ly*ly);
+      const theta = Math.atan2(ly, lx);
+      const R = R_BASE * edgeShape(theta);
+      if (r >= R * 0.98) continue; // stay inside edge
+      // Thin blades out in the collar band; no blades past fringe
+      const rn = r / R;
+      if (rn > 0.93 && Math.random() < (rn - 0.93) * 10) continue;
+
+      // world position: local (lx, ly) → world (lx, 0, ly) because
+      // the plane rotation sends local +Y → world -Z... wait, let me
+      // verify: rotation -PI/2 on X: new_y = old_z; new_z = -old_y.
+      // For plane points (x, y, 0): world = (x, 0, -y). So for a
+      // "local y" we should use world z = -y. Use that.
+      const wx = lx;
+      const wz = -ly;
+      // baked bump height at this point (raw turf noise, before topology)
+      const bh = turfBump(lx, ly);
+      // world y: base green offset + bump
+      const wy = 0.015 + bh;
+
+      // Per-blade params — trimmed to tournament-green length.
+      // Real championship putting surfaces cut around 3mm; at render
+      // scale 0.8–1.8cm reads as "manicured, not rough."
+      const heightM = 0.008 + Math.random() * 0.010;    // 0.8-1.8cm
+      const widthM  = 0.0022 + Math.random() * 0.0022;  // 2.2-4.4mm
+
+      // --- Mower-stripe lean: this is what makes real stripes. ---
+      // Blades in adjacent stripe bands lean in OPPOSITE directions
+      // along the mow axis. Seen edge-on one band shows broadside
+      // (more leaf area → looks dark) and the other shows tip
+      // (less area → looks light). That's the whole effect.
+      // Stripe direction is (0.85, 0.22) in local — mow axis is the
+      // same. Use the stripe sign to pick lean direction.
+      const wobbleS = Math.sin(ly * 0.9) * 0.35 + Math.sin(ly * 2.3 + 1.1) * 0.18 + Math.sin(lx * 0.6 + 2.7) * 0.22;
+      const stripeP = (lx * 0.85 + ly * 0.22) * 2.4 + wobbleS;
+      const stripeSign = Math.sin(stripeP) >= 0 ? 1 : -1;
+
+      // Mow axis angle (local space): atan2(0.22, 0.85) ≈ 0.253 rad.
+      // Want blade to face perpendicular to mow axis (so yaw aligns
+      // the blade's broad face along the mow direction), then tilt
+      // forward/back along the mow axis by the stripe sign.
+      const MOW_ANGLE = Math.atan2(0.22, 0.85); // ~14.5°
+      // Base yaw: 50% locked to mow axis ±small jitter (so stripes
+      // read), 50% fully random (so the green doesn't look like a
+      // venetian blind from any angle). Mixing the two populations
+      // is what keeps natural turf from looking like a flipbook.
+      const yawLock = Math.random() < 0.5;
+      const rotY = yawLock
+        ? MOW_ANGLE + Math.PI/2 + (Math.random() - 0.5) * 0.8
+        : Math.random() * Math.PI * 2;
+      // Lean angle (tilt around the blade's local X after yaw): push
+      // the tip along the mow axis. Strong-ish for hero read; jitter
+      // per-blade keeps it organic.
+      const leanBase = 0.45 + Math.random() * 0.25; // 26–40° lean
+      const tilt = stripeSign * leanBase;
+
+      dummy.position.set(wx, wy, wz);
+      dummy.rotation.set(tilt, rotY, 0);
+      dummy.scale.set(widthM, heightM, widthM);
+      dummy.updateMatrix();
+      bladeInst.setMatrixAt(bi, dummy.matrix);
+
+      // Per-blade tint (lerp to tip brightness on the upper half —
+      // handled by adjusting the per-vertex normal map not available
+      // here; instead just slightly brighten the whole blade tip via
+      // overall color shift)
+      const col = sampleBladeColor(lx, ly);
+      // random brightness variation between neighboring blades
+      const bv = 0.88 + Math.random() * 0.24;
+      tmpColor.setRGB(col.r * bv, col.g * bv, col.b * bv);
+      bladeInst.setColorAt(bi, tmpColor);
+
+      bladeRecords[bi] = { lx, ly, wx, wz, bh, heightM, widthM, rotY, tilt };
+      bi++;
+    }
+    // If we didn't fill (unlikely) zero out the rest
+    for (let k = bi; k < BLADE_COUNT; k++) {
+      dummy.scale.set(0, 0, 0);
+      dummy.position.set(0, -100, 0);
+      dummy.updateMatrix();
+      bladeInst.setMatrixAt(k, dummy.matrix);
+      tmpColor.setRGB(0, 0, 0);
+      bladeInst.setColorAt(k, tmpColor);
+    }
+    bladeInst.instanceMatrix.needsUpdate = true;
+    if (bladeInst.instanceColor) bladeInst.instanceColor.needsUpdate = true;
+    scene.add(bladeInst);
+
+    // Stash for reconfigure updates
+    window.__blades = { mesh: bladeInst, records: bladeRecords, count: bi, dummy: new THREE.Object3D() };
+  }
+
+  /* ---------- Hole + rim ---------- */
+  holePosVec = new THREE.Vector3(0, 0, -2.6);
+  holeRim = new THREE.Mesh(
+    new THREE.RingGeometry(0.095, 0.135, 40),
+    new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 1.0 })
+  );
+  holeRim.rotation.x = -Math.PI / 2;
+  holeRim.position.set(holePosVec.x, 0.019, holePosVec.z);
+  scene.add(holeRim);
+  // hole inner
+  holeInner = new THREE.Mesh(
+    new THREE.CircleGeometry(0.095, 32),
+    new THREE.MeshBasicMaterial({ color: 0x000000 })
+  );
+  holeInner.rotation.x = -Math.PI / 2;
+  holeInner.position.set(holePosVec.x, 0.018, holePosVec.z);
+  scene.add(holeInner);
+
+  /* ---------- Flag group (cleaner, premium pin) ---------- */
+  flagGroup = new THREE.Group();
+  const poleH = 2.1;
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, poleH, 12),
+    new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.25, metalness: 0.6 })
+  );
+  pole.position.y = poleH/2;
+  pole.castShadow = true;
+  flagGroup.add(pole);
+  // cap
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.028, 16, 12),
+    new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.2, metalness: 0.8 })
+  );
+  cap.position.y = poleH;
+  flagGroup.add(cap);
+  // flag — subdivided plane so vertices can be animated per-frame
+  // into a traveling wave. 24×4 segments is plenty for a smooth
+  // ripple at this size; the cost is trivial vs the turf mesh.
+  const FLAG_W = 0.5, FLAG_H = 0.26;
+  const flagGeom = new THREE.PlaneGeometry(FLAG_W, FLAG_H, 24, 4);
+  flag = new THREE.Mesh(
+    flagGeom,
+    new THREE.MeshStandardMaterial({
+      // Strong self-glow so the flag stays legible even when the key
+      // is raking from behind the scene (camera-facing side shadowed).
+      color: 0x9a2e2e, roughness: 0.55, side: THREE.DoubleSide,
+      emissive: 0x6a1818, emissiveIntensity: 0.75
+    })
+  );
+  // Offset so the pole-side edge of the flag sits at the pole (x=0).
+  flag.position.set(FLAG_W/2 + 0.015, poleH - 0.30 + FLAG_H/2, 0);
+  // Cache the undisturbed base positions so the wave animation always
+  // offsets from a clean reference instead of accumulating drift.
+  flag.userData.basePos = flagGeom.attributes.position.array.slice();
+  flag.userData.W = FLAG_W;
+  flag.userData.H = FLAG_H;
+  flagGroup.add(flag);
+
+  flagGroup.position.copy(holePosVec);
+  scene.add(flagGroup);
+
+  /* Ball — lifted size + faint self-lift so it reads at a glance on
+     busy turf. A tight contact-shadow disc anchors it to the green
+     since the global shadow map softens too much at this scale. */
+  ballPos = new THREE.Vector3(-1.4, 0.04, 3.2);
+  ballMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.060, 24, 18),
+    new THREE.MeshStandardMaterial({
+      color: 0xfbf9f1, roughness: 0.38, metalness: 0.02,
+      emissive: 0x1a180f, emissiveIntensity: 0.25
+    })
+  );
+  ballMesh.position.copy(ballPos);
+  ballMesh.castShadow = true;
+  scene.add(ballMesh);
+  // Tight ball-specific contact shadow
+  const ballShadowCanvas = document.createElement('canvas');
+  ballShadowCanvas.width = 128; ballShadowCanvas.height = 128;
+  const bsctx = ballShadowCanvas.getContext('2d');
+  const bsg = bsctx.createRadialGradient(64, 64, 4, 64, 64, 58);
+  bsg.addColorStop(0,    'rgba(0,0,0,0.75)');
+  bsg.addColorStop(0.35, 'rgba(0,0,0,0.40)');
+  bsg.addColorStop(0.75, 'rgba(0,0,0,0.10)');
+  bsg.addColorStop(1,    'rgba(0,0,0,0)');
+  bsctx.fillStyle = bsg;
+  bsctx.fillRect(0, 0, 128, 128);
+  const ballShadowTex = new THREE.CanvasTexture(ballShadowCanvas);
+  window.__ballShadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.25, 0.18),
+    new THREE.MeshBasicMaterial({ map: ballShadowTex, transparent: true, depthWrite: false })
+  );
+  window.__ballShadow.rotation.x = -Math.PI / 2;
+  window.__ballShadow.position.set(ballPos.x + 0.025, 0.021, ballPos.z + 0.01);
+  window.__ballShadow.renderOrder = 5;
+  scene.add(window.__ballShadow);
+
+  /* ---------- Aim line — visible in AIM/SWING/ROLL states.
+     Built as a multi-segment Line so it follows the live turf profile
+     instead of flying above undulating topology. Endpoints + intermediate
+     samples are recomputed in stepInteraction(). ---------- */
+  const AIM_SAMPLES = 48;
+  const aimGeom = new THREE.BufferGeometry();
+  aimGeom.setAttribute('position',
+    new THREE.BufferAttribute(new Float32Array(AIM_SAMPLES * 3), 3));
+  const aimMat = new THREE.LineBasicMaterial({
+    color: 0xc9ff4a, transparent: true, opacity: 0,
+    depthTest: false, depthWrite: false
+  });
+  window.__aimLine = new THREE.Line(aimGeom, aimMat);
+  window.__aimLine.renderOrder = 30; // draw over blades
+  window.__aimLine.frustumCulled = false;
+  window.__aimLine.userData.samples = AIM_SAMPLES;
+  scene.add(window.__aimLine);
+
+  /* ---------- Putter club — two-level group so aim yaw and swing
+     rotation are separable. Positioned in stepInteraction() each frame
+     to track the ball. ---------- */
+  const PIVOT_H = 1.05;      // hands height above ground
+  const CLUB_LEN = 1.10;     // shaft length
+  const putterBase = new THREE.Group();   // yaw with aim
+  const putterPivot = new THREE.Group();  // swings (rotation.x)
+  putterBase.add(putterPivot);
+
+  // Shaft
+  const shaftGeom = new THREE.CylinderGeometry(0.010, 0.009, CLUB_LEN, 12);
+  const shaftMat = new THREE.MeshStandardMaterial({
+    color: 0xbcc0c4, roughness: 0.28, metalness: 0.85
+  });
+  const shaft = new THREE.Mesh(shaftGeom, shaftMat);
+  shaft.position.y = -CLUB_LEN / 2; // hangs below pivot
+  putterPivot.add(shaft);
+
+  // Grip — short rubber stub at top
+  const gripGeom = new THREE.CylinderGeometry(0.016, 0.015, 0.18, 12);
+  const gripMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a1c, roughness: 0.95, metalness: 0.0
+  });
+  const grip = new THREE.Mesh(gripGeom, gripMat);
+  grip.position.y = -0.09;
+  putterPivot.add(grip);
+
+  // Head — blocky putter blade at the base
+  const headGeom = new THREE.BoxGeometry(0.12, 0.036, 0.038);
+  const headMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1c1f, roughness: 0.35, metalness: 0.7
+  });
+  const head = new THREE.Mesh(headGeom, headMat);
+  // Centered on shaft tip; offset slightly forward so the face meets the ball
+  head.position.set(0, -CLUB_LEN + 0.014, 0.018);
+  head.castShadow = true;
+  putterPivot.add(head);
+
+  putterBase.visible = false;
+  scene.add(putterBase);
+
+  // Stash references for stepInteraction
+  window.__putter = {
+    base: putterBase,
+    pivot: putterPivot,
+    head: head,
+    CLUB_LEN: CLUB_LEN,
+    PIVOT_H: PIVOT_H
+  };
+
+  /* ---------- Actuator grid — emissive dots for reconfigure shimmer ---------- */
+  actuators = new THREE.Group();
+  const dotGeom = new THREE.SphereGeometry(0.055, 10, 8);
+  const spacing = 0.85;
+  const count = 12;
+  for (let ix = 0; ix < count; ix++) {
+    for (let iz = 0; iz < count; iz++) {
+      const dx = (ix - (count-1)/2) * spacing;
+      const dz = (iz - (count-1)/2) * spacing;
+      const rxz = Math.sqrt(dx*dx + dz*dz);
+      const theta = Math.atan2(dz, dx);
+      const rMax = R_BASE * edgeShape(theta) * 0.84;
+      if (rxz > rMax) continue;
+      const m = new THREE.MeshBasicMaterial({
+        color: 0xc9ff4a, transparent: true, opacity: 0, depthWrite: false
+      });
+      const d = new THREE.Mesh(dotGeom, m);
+      d.position.set(dx, 0.02, dz);
+      d.userData = { gx: dx, gz: dz };
+      actuators.add(d);
+    }
+  }
+  scene.add(actuators);
+
+  /* ---------- Topology grid ---------- */
+  buildTopoGrid();
+
+  /* ---------- Lighting ---------- */
+  // 21° raking key — positioned BEHIND the green (camera looks at +Z,
+  // light sits at -Z) so shadows cast FORWARD toward the viewer. This
+  // puts the near face of raised topology in shadow and catches the
+  // far face in key light, which is what makes mounds/tiers read as
+  // 3D at a glance instead of as subtle tonal shifts.
+  // Elevation: atan(3.6 / sqrt(7^2 + 6^2)) ≈ 21°
+  const key = new THREE.DirectionalLight(0xffd89c, 3.2);
+  key.position.set(-7, 3.6, -6);
+  key.target.position.set(0, 0, 0);
+  scene.add(key.target);
+  key.castShadow = true;
+  key.shadow.mapSize.width = 4096;
+  key.shadow.mapSize.height = 4096;
+  key.shadow.camera.left = -10; key.shadow.camera.right = 10;
+  key.shadow.camera.top = 10;  key.shadow.camera.bottom = -10;
+  key.shadow.camera.near = 0.1; key.shadow.camera.far = 30;
+  key.shadow.bias = -0.00015;
+  key.shadow.normalBias = 0.035;   // was 0.06 — less "peter panning" so shadows stay attached to raised topology
+  key.shadow.radius = 3;           // was 6 — tighter penumbra; mound shadows read as definition not haze
+  scene.add(key);
+
+  // Cool fill — repositioned to camera-front-right. With the key
+  // behind the green, the camera-facing surfaces (flag, front of ball,
+  // near-side of mounds) need a soft wrap-around fill so they don't
+  // drop into pure silhouette.
+  const fill = new THREE.DirectionalLight(0x6a8cc8, 0.45);
+  fill.position.set(5, 4.5, 7);
+  scene.add(fill);
+
+  // Back rim for silhouette — dimmed (0.55 → 0.30) now that the key
+  // is itself behind the scene; the rim was mostly painting the back
+  // half of the floor and headline area brighter than desired.
+  const rim = new THREE.DirectionalLight(0xffffff, 0.30);
+  rim.position.set(2, 3, -9);
+  scene.add(rim);
+
+  // Ambient/hemi dropped — these were the main culprits lifting the
+  // shadow side into a middle-grey and washing out topology relief.
+  scene.add(new THREE.AmbientLight(0x2c2e36, 0.18));
+  scene.add(new THREE.HemisphereLight(0x4a6284, 0x080808, 0.12));
+
+  window.addEventListener('resize', onResize);
+
+  initPhysics();
+}
+
+/* =================================================================
+   Physics (cannon-es) — a lightweight rigid-body sim that drives the
+   ball during ROLL. The terrain is a Heightfield resampled from the
+   same sampleTurfHeight() the render surface uses, so rolling and
+   visible relief always agree.
+   ================================================================= */
+function initPhysics() {
+  physWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+  physWorld.solver.iterations = 18;
+  physWorld.solver.tolerance = 0.001;
+  physWorld.allowSleep = true;
+
+  turfMat = new CANNON.Material('turf');
+  ballMat = new CANNON.Material('ball');
+  const contact = new CANNON.ContactMaterial(ballMat, turfMat, {
+    friction: TURF_FRICTION,
+    restitution: TURF_RESTIT,
+    contactEquationStiffness: 1e8,
+    contactEquationRelaxation: 3
+  });
+  physWorld.addContactMaterial(contact);
+  physWorld.defaultContactMaterial = contact;
+
+  ballBody = new CANNON.Body({
+    mass: BALL_MASS,
+    shape: new CANNON.Sphere(BALL_RADIUS),
+    material: ballMat,
+    linearDamping: BALL_LIN_DAMP,
+    angularDamping: BALL_ANG_DAMP,
+    allowSleep: true,
+    sleepSpeedLimit: 0.06,
+    sleepTimeLimit: 0.4
+  });
+  ballBody.position.set(ballHome.x, GREEN_BASE_Y + BALL_RADIUS, ballHome.z);
+  physWorld.addBody(ballBody);
+
+  // Build an initial terrain so physics is ready on first roll.
+  rebuildTerrain();
+}
+
+const GREEN_BASE_Y = 0.015; // must match the render-side constant
+
+/* Rebuild the heightfield from the current topology. Called on first init
+   and before each roll so physics always matches whatever surface the
+   player is looking at.
+   Local-frame math: cannon Heightfield lives in its local XY plane with
+   heights along local +Z. We rotate the body -90° around X so local +Z
+   becomes world +Y, local +X stays world +X, and local +Y becomes world
+   -Z. So grid index (xi, yi) corresponds to world
+     (xOrigin + xi*ds, h, zOrigin - yi*ds). */
+function rebuildTerrain() {
+  if (!physWorld) return;
+  if (terrainBody) {
+    physWorld.removeBody(terrainBody);
+    terrainBody = null;
+  }
+  const ds = (PHYS_RANGE * 2) / (PHYS_GRID - 1);
+  const xOrigin = -PHYS_RANGE;
+  const zOrigin = +PHYS_RANGE;
+  // Use the CURRENT visible surface (reconfigState snapshots the live
+  // mesh shape including any in-flight transition) so physics matches
+  // the render exactly.
+  const rec = reconfigState(performance.now() / 1000);
+  const fn = rec.fn, intensity = rec.intensity;
+  const data = new Array(PHYS_GRID);
+  // Build a SMOOTH heightfield from fn() only — no per-vertex turfBump.
+  // The bump is a sub-centimeter pseudorandom roughness meant for visual
+  // catchlight. Feeding it into physics creates tiny cliffs between grid
+  // cells that bounce the ball off the surface.
+  for (let xi = 0; xi < PHYS_GRID; xi++) {
+    const row = new Array(PHYS_GRID);
+    const wx = xOrigin + xi * ds;
+    for (let yi = 0; yi < PHYS_GRID; yi++) {
+      const wz = zOrigin - yi * ds;
+      const localY = -wz; // green geometry is rotated -PI/2 around X in the scene
+      const theta = Math.atan2(localY, wx);
+      const R = R_BASE * edgeShape(theta);
+      const r = Math.sqrt(wx * wx + wz * wz);
+      const rn = r / R;
+      let h = fn(wx, localY) * intensity;
+      if (rn >= 1.0) {
+        h = 0;
+      } else if (rn > 0.72) {
+        const f = (rn - 0.72) / 0.28;
+        const e = f * f * f * (f * (f * 6 - 15) + 10);
+        h = h * (1 - e);
+      }
+      let physH = GREEN_BASE_Y + h;
+      if (rn > 1.0) physH = -0.35; // off-green → ball falls off the edge
+      row[yi] = physH;
+    }
+    data[xi] = row;
+  }
+  const hf = new CANNON.Heightfield(data, { elementSize: ds });
+  terrainBody = new CANNON.Body({ mass: 0, material: turfMat });
+  terrainBody.addShape(hf);
+  // Rotate so local +Z (heights) maps to world +Y.
+  terrainBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  // Place the body so grid (0,0) is at (xOrigin, 0, zOrigin).
+  terrainBody.position.set(xOrigin, 0, zOrigin);
+  physWorld.addBody(terrainBody);
+}
+
+/* =================================================================
+   Reconfigure timeline
+   Phases: ANTICIPATE (tiny pre-dip of fromId) → DOWN → HOLD (shimmer)
+           → UP (into toId) → SETTLE (micro-bounce)
+   ================================================================= */
+function easeInOut(t) { return t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+function reconfigState(tNow) {
+  if (transStart >= 0 && tNow - transStart >= T_TOTAL) {
+    activeId = toId;
+    transStart = -1;
+    telText.textContent = activeId === 'flat'
+      ? 'Idle'
+      : 'Active · ' + byId(activeId).name;
+    telDot.classList.remove('working');
+    liveDot.classList.remove('working');
+    liveMetric.textContent = formatMetric(activeId);
+  }
+  if (transStart < 0) {
+    return { fn: byId(activeId).fn, intensity: 1, shimmer: 0, epi: byId(activeId).epi,
+             gridOpacity: 0 };
+  }
+  const e = tNow - transStart;
+  const toFn = byId(toId).fn;
+
+  // 1. ANTICIPATE: fromId pushes slightly UP before lowering (anticipation)
+  if (e < T_ANTICIPATE) {
+    const u = e / T_ANTICIPATE;
+    const f = 1 + 0.08 * Math.sin(u * Math.PI);
+    return { fn: byId(fromId).fn, intensity: f, shimmer: 0, epi: byId(fromId).epi,
+             gridOpacity: u * 0.5 };
+  }
+  // 2. DOWN — grid rides the lowering surface
+  let t0 = T_ANTICIPATE;
+  if (e < t0 + T_DOWN) {
+    const u = (e - t0) / T_DOWN;
+    const f = 1 - easeInOut(u);
+    return { fn: byId(fromId).fn, intensity: f, shimmer: 0, epi: byId(fromId).epi,
+             gridOpacity: 0.5 + u * 0.45 };
+  }
+  t0 += T_DOWN;
+  // 3. HOLD — flat; grid sits on flat turf at full opacity
+  if (e < t0 + T_HOLD) {
+    const u = (e - t0) / T_HOLD;
+    const s = Math.sin(u * Math.PI);
+    return { fn: () => 0, intensity: 0, shimmer: s, epi: byId(toId).epi,
+             gridOpacity: 0.95 };
+  }
+  t0 += T_HOLD;
+  // 4. UP — grid rides rising surface
+  if (e < t0 + T_UP) {
+    const u = (e - t0) / T_UP;
+    const f = easeInOut(u);
+    return { fn: toFn, intensity: f, shimmer: Math.max(0, 1 - u*1.4) * 0.35, epi: byId(toId).epi,
+             gridOpacity: 0.95 - u * 0.2 };
+  }
+  t0 += T_UP;
+  // 5. SETTLE — grid fades out
+  const u = (e - t0) / T_SETTLE;
+  const bounce = 1 + Math.sin(u * Math.PI) * 0.025 * (1 - u);
+  return { fn: toFn, intensity: bounce, shimmer: 0, epi: byId(toId).epi,
+           gridOpacity: 0.75 * (1 - u) };
+}
+
+/* =================================================================
+   Geometry update
+   ================================================================= */
+function updateGeometry(t) {
+  const { fn, intensity, shimmer, epi, gridOpacity } = reconfigState(t);
+
+  const pos = geometry.attributes.position;
+  const col = geometry.attributes.color;
+  const rnArr = geometry.userData.rnArr;
+  const bumpArr = geometry.userData.bumpArr;
+  const baseColorArr = geometry.userData.baseColorArr;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    let h = fn(x, y) * intensity;
+    const rn = rnArr[i];
+
+    // Wider, softer falloff near edge — prevents jagged triangulation
+    // artifacts where the flat collar meets the dipped interior.
+    if (rn >= 1.00) {
+      h = 0;
+    } else if (rn > 0.72) {
+      const f = (rn - 0.72) / 0.28;
+      const e = f*f*f*(f*(f*6 - 15) + 10); // quintic smoothstep
+      h = h * (1 - e);
+    }
+    // baked turf bump ALWAYS present — no amount of reconfigure smooths it
+    pos.setZ(i, h + bumpArr[i]);
+
+    // Height-based shading — very subtle; real turf doesn't bleach
+    // on crests. Just a hint of AO in valleys.
+    if (rn < 0.95) {
+      const tint = Math.max(-0.15, Math.min(0.08, h * 0.5));
+      col.array[i*3]   = Math.max(0, Math.min(1, baseColorArr[i*3]   + tint * 0.12));
+      col.array[i*3+1] = Math.max(0, Math.min(1, baseColorArr[i*3+1] + tint * 0.18));
+      col.array[i*3+2] = Math.max(0, Math.min(1, baseColorArr[i*3+2] + tint * 0.08));
+    }
+  }
+  pos.needsUpdate = true;
+  col.needsUpdate = true;
+  geometry.computeVertexNormals();
+
+  /* ---- Actuator wave radiating from epicenter ---- */
+  const g = shimmer;
+  actuators.children.forEach((d) => {
+    if (g <= 0.001) { d.material.opacity = 0; return; }
+    const dx = d.userData.gx - epi[0];
+    const dz = d.userData.gz - epi[1];
+    const r = Math.sqrt(dx*dx + dz*dz);
+    const phase = (t * 4.5 - r * 1.3);
+    const wave = Math.max(0, Math.sin(phase));
+    const distFall = Math.exp(-r * 0.15);
+    const pulse = wave * g * distFall;
+    d.material.opacity = Math.min(1, pulse * 1.2);
+    d.position.y = 0.02 + pulse * 0.04;
+  });
+
+  /* ---- Subtle emissive kick on the turf during shimmer ---- */
+  green.material.emissive.setHex(0x2a4a1a);
+  green.material.emissiveIntensity = g * 0.22;
+
+  /* ---- Flag wave ---- */
+  if (flag && flag.userData.basePos) {
+    // Subtle whole-flag yaw: simulates gusts swinging the cloth around
+    // the pole. Kept small so the per-vertex wave does the heavy lift.
+    flag.rotation.y = Math.sin(t * 0.9) * 0.05 + Math.sin(t * 0.28) * 0.025;
+
+    const pos = flag.geometry.attributes.position;
+    const base = flag.userData.basePos;
+    const W = flag.userData.W, H = flag.userData.H;
+    for (let i = 0; i < pos.count; i++) {
+      const bx = base[i*3];
+      const by = base[i*3 + 1];
+      // w: 0 at pole-side edge, 1 at free edge — amplitude scales with it
+      const w = (bx + W/2) / W;
+      const w2 = w * w; // sharper taper so pole side stays anchored
+      // Primary slow traveling wave
+      const wave  = Math.sin(t * 2.3 - w * 5.0) * 0.045 * w2;
+      // Secondary high-freq flutter — vertical bands
+      const flutter = Math.sin(t * 3.8 - w * 10.0 + by * 14.0) * 0.012 * w;
+      // Gentle gravity droop at the free edge
+      const droop = -0.012 * w2;
+      pos.setX(i, bx);
+      pos.setY(i, by + droop);
+      pos.setZ(i, wave + flutter);
+    }
+    pos.needsUpdate = true;
+    flag.geometry.computeVertexNormals();
+  }
+
+  /* ---- Topology grid ---- */
+  updateTopoGrid(fn, intensity, gridOpacity);
+
+  /* ---- Hole + flag + ball ride the live turf so they never bury ---- */
+  const GREEN_BASE_Y = 0.015;
+  if (holeInner && holePosVec) {
+    const hs = sampleTurfHeight(holePosVec.x, holePosVec.z, fn, intensity);
+    const hy = GREEN_BASE_Y + hs.h;
+    holeRim.position.y = hy + 0.012;
+    holeInner.position.y = hy + 0.013;
+    if (flagGroup) flagGroup.position.y = hy;
+  }
+  if (ballMesh && ballPos) {
+    const bs = sampleTurfHeight(ballPos.x, ballPos.z, fn, intensity);
+    ballMesh.position.x = ballPos.x;
+    ballMesh.position.z = ballPos.z;
+    let ballY;
+    if (gameState === S_ROLL) {
+      // Physics owns the ball during ROLL — ballPos.y was copied from
+      // ballBody.position.y in stepBallPhysics.
+      ballY = ballPos.y;
+    } else if (gameState === S_RESULT && resultKind === 'holed') {
+      // Animate drop into the hole
+      const tSince = (performance.now() / 1000) - resultStart;
+      const drop = Math.min(1, tSince / 0.45);
+      ballY = GREEN_BASE_Y + bs.h + 0.060 - 0.16 * smoothstep01(drop);
+    } else {
+      ballY = GREEN_BASE_Y + bs.h + 0.060;
+    }
+    ballMesh.position.y = ballY;
+    if (window.__ballShadow) {
+      // Shadow always rides the surface, not the ball (so it reads while
+      // the ball is briefly airborne crossing a ridge)
+      window.__ballShadow.position.y = GREEN_BASE_Y + bs.h + 0.006;
+      if (gameState === S_RESULT && resultKind === 'holed') {
+        const tSince = (performance.now() / 1000) - resultStart;
+        window.__ballShadow.material.opacity = Math.max(0, 1 - tSince / 0.4);
+      } else {
+        window.__ballShadow.material.opacity = 1;
+      }
+    }
+  }
+
+  /* ---- Blades ride the live turf ----
+     Sample the SAME height function the mesh uses so each blade stays
+     planted as the green morphs. sampleTurfHeight already bakes in
+     turfBump, so we do NOT add rec.bh again. Only run during active
+     transitions — idle is static. */
+  if (window.__blades && typeof transStart !== 'undefined' && transStart >= 0) {
+    const b = window.__blades;
+    const mesh = b.mesh, recs = b.records, n = b.count, d = b.dummy;
+    for (let k = 0; k < n; k++) {
+      const r = recs[k];
+      const s = sampleTurfHeight(r.wx, r.wz, fn, intensity);
+      d.position.set(r.wx, GREEN_BASE_Y + s.h, r.wz);
+      d.rotation.set(r.tilt, r.rotY, 0);
+      d.scale.set(r.widthM, r.heightM, r.widthM);
+      d.updateMatrix();
+      mesh.setMatrixAt(k, d.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/* =================================================================
+   Camera — idle dolly in HERO, flies to ball in APPROACH,
+   parks behind ball for AIM/SWING/ROLL/RESULT.
+   ================================================================= */
+const CAM_BASE = { x: 4.3, y: 2.6, z: 10.3, lookX: 0.2, lookY: 0.4, lookZ: 0.2 };
+const __camTmp = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+function smoothstep01(x) {
+  const u = Math.max(0, Math.min(1, x));
+  return u * u * (3 - 2 * u);
+}
+// Camera lookAt target, eased per-frame so ball-follow is smooth.
+const __camLook = new THREE.Vector3(CAM_AIM_LOOK.x, CAM_AIM_LOOK.y, CAM_AIM_LOOK.z);
+const __desiredLook = new THREE.Vector3();
+const __desiredCamPos = new THREE.Vector3();
+// Chase-cam offset used during ROLL/RESULT — higher Y and further behind
+// than the AIM pose so the viewer sees the whole putt from a slight
+// overhead angle instead of pressing up against the ball.
+// Direction from ball: roughly the same vector as the AIM pose (behind +
+// slightly left) but scaled out and lifted up.
+const __camChaseOffset = new THREE.Vector3(-0.35, 1.80, 2.35);
+function updateCamera(t) {
+  if (gameState === S_HERO) {
+    const orbit = Math.sin(t * 0.10) * 0.35;
+    const rise  = Math.sin(t * 0.07) * 0.25;
+    camera.position.x = CAM_BASE.x + orbit;
+    camera.position.y = CAM_BASE.y + rise;
+    camera.position.z = CAM_BASE.z + Math.cos(t * 0.10) * 0.20;
+    camera.lookAt(CAM_BASE.lookX, CAM_BASE.lookY, CAM_BASE.lookZ);
+    // Keep the parked-state look target cached at the hole for when we
+    // next approach — prevents a first-frame jump.
+    __camLook.set(CAM_AIM_LOOK.x, CAM_AIM_LOOK.y, CAM_AIM_LOOK.z);
+    return;
+  }
+  // APPROACH: wheelProgress 0 → 1 lerps hero pose → parked pose.
+  // Parked states (AIM/SWING): stay at CAM_AIM_POS with a little breathing.
+  // Chase states (ROLL/RESULT): follow the ball from an overhead chase pose.
+  const u = smoothstep01(wheelProgress);
+  if (gameState === S_ROLL || gameState === S_RESULT) {
+    __desiredCamPos.set(
+      ballPos.x + __camChaseOffset.x,
+      ballHome.y + __camChaseOffset.y,  // hold Y absolute so camera doesn't ride mounds
+      ballPos.z + __camChaseOffset.z
+    );
+    // Smoothly chase — slower lerp = more cinematic drift
+    camera.position.lerp(__desiredCamPos, 0.06);
+  } else {
+    camera.position.x = CAM_BASE.x + (CAM_AIM_POS.x - CAM_BASE.x) * u;
+    camera.position.y = CAM_BASE.y + (CAM_AIM_POS.y - CAM_BASE.y) * u;
+    camera.position.z = CAM_BASE.z + (CAM_AIM_POS.z - CAM_BASE.z) * u;
+    // Tiny breath while parked (not during APPROACH to avoid drift)
+    if (gameState !== S_APPROACH) {
+      camera.position.y += Math.sin(t * 0.9) * 0.005;
+      camera.position.x += Math.sin(t * 0.7) * 0.004;
+    }
+  }
+
+  // Desired lookAt: during ROLL/RESULT follow the ball; otherwise interpolate
+  // between the hero baseline and the parked hole-target.
+  if (gameState === S_ROLL || gameState === S_RESULT) {
+    __desiredLook.set(ballPos.x, Math.max(0.06, ballPos.y + 0.04), ballPos.z);
+  } else {
+    __desiredLook.set(
+      CAM_BASE.lookX + (CAM_AIM_LOOK.x - CAM_BASE.lookX) * u,
+      CAM_BASE.lookY + (CAM_AIM_LOOK.y - CAM_BASE.lookY) * u,
+      CAM_BASE.lookZ + (CAM_AIM_LOOK.z - CAM_BASE.lookZ) * u
+    );
+  }
+  // Ease the look-at so the camera glides as the ball travels instead of snapping.
+  const lookLerp = (gameState === S_ROLL || gameState === S_RESULT) ? 0.16 : 0.18;
+  __camLook.lerp(__desiredLook, lookLerp);
+  camera.lookAt(__camLook.x, __camLook.y, __camLook.z);
+}
+
+function onResize() {
+  const host = document.getElementById('canvas-host');
+  const w = host.clientWidth, h = host.clientHeight;
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+/* =================================================================
+   Interactive state machine + ball physics + putter animation.
+   Called once per frame from animate() — dispatches on gameState.
+   ================================================================= */
+let __lastFrameTime = -1;
+const __gradEps = 0.08;
+
+function currentTopoFn() {
+  // Reuse the same fn/intensity the mesh is showing this frame.
+  // reconfigState is defined above in this script block.
+  return reconfigState(performance.now() / 1000);
+}
+
+function sampleGradient(x, z, fn, intensity) {
+  const hPx = sampleTurfHeight(x + __gradEps, z, fn, intensity).h;
+  const hMx = sampleTurfHeight(x - __gradEps, z, fn, intensity).h;
+  const hPz = sampleTurfHeight(x, z + __gradEps, fn, intensity).h;
+  const hMz = sampleTurfHeight(x, z - __gradEps, fn, intensity).h;
+  return {
+    gx: (hPx - hMx) / (2 * __gradEps),
+    gz: (hPz - hMz) / (2 * __gradEps)
+  };
+}
+
+function aimDirection() {
+  // Base direction: ball → hole, projected onto XZ plane, normalized.
+  const bx = ballHome.x, bz = ballHome.z;
+  const hx = holePosVec.x, hz = holePosVec.z;
+  const dx = hx - bx, dz = hz - bz;
+  const len = Math.sqrt(dx*dx + dz*dz) || 1;
+  const baseX = dx / len, baseZ = dz / len;
+  // Rotate by aimYaw around world Y
+  const c = Math.cos(aimYaw), s = Math.sin(aimYaw);
+  return { x: baseX * c - baseZ * s, z: baseX * s + baseZ * c };
+}
+
+function updateAimLine(show) {
+  if (!window.__aimLine) return;
+  const mat = window.__aimLine.material;
+  const target = show ? 0.55 : 0;
+  mat.opacity += (target - mat.opacity) * 0.18;
+  if (mat.opacity < 0.002 && !show) return;
+
+  const rec = currentTopoFn();
+  const fn = rec.fn, intensity = rec.intensity;
+  const dir = aimDirection();
+  const bx = ballPos.x, bz = ballPos.z;
+  // Ball-to-hole distance as baseline, extend ~40% past the hole
+  const hx = holePosVec.x, hz = holePosVec.z;
+  const baseDist = Math.sqrt((hx-bx)*(hx-bx) + (hz-bz)*(hz-bz));
+  const totalLen = baseDist * 1.35;
+
+  const N = window.__aimLine.userData.samples;
+  const posAttr = window.__aimLine.geometry.attributes.position;
+  const arr = posAttr.array;
+  const GREEN_BASE_Y = 0.015;
+  const START_OFFSET = 0.14; // skip the first bit so the line doesn't stab into the ball
+  const LIFT = 0.055;        // sits above the blade canopy so it reads clearly
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1);
+    const d = START_OFFSET + f * (totalLen - START_OFFSET);
+    const x = bx + dir.x * d;
+    const z = bz + dir.z * d;
+    const s = sampleTurfHeight(x, z, fn, intensity);
+    // If the line exits the green, snap to the edge and hold (visually clips).
+    if (s.rn > 1.0) {
+      const snapDist = d - (s.rn - 1.0) * (baseDist * 0.2);
+      const ex = bx + dir.x * snapDist;
+      const ez = bz + dir.z * snapDist;
+      const es = sampleTurfHeight(ex, ez, fn, intensity);
+      arr[i*3]     = ex;
+      arr[i*3 + 1] = GREEN_BASE_Y + es.h + LIFT;
+      arr[i*3 + 2] = ez;
+    } else {
+      arr[i*3]     = x;
+      arr[i*3 + 1] = GREEN_BASE_Y + s.h + LIFT;
+      arr[i*3 + 2] = z;
+    }
+  }
+  posAttr.needsUpdate = true;
+  window.__aimLine.geometry.computeBoundingSphere();
+}
+
+function updatePutter(show, tNow) {
+  const P = window.__putter;
+  if (!P) return;
+  P.base.visible = show;
+  if (!show) return;
+
+  // Base: positioned above the ball's HOME (tee-off) spot, yawed so local
+  // -Z points toward the hole. The pivot does not travel with the ball —
+  // after impact, the ball flies on while the club stays put at the tee.
+  // With this orientation, pivot.rotation.x = -120° puts the club UP and
+  // BEHIND the golfer (toward +Z, away from hole), which is the correct
+  // backswing; downswing then sweeps forward through the ball.
+  const dir = aimDirection();
+  const yaw = Math.atan2(-dir.x, -dir.z);
+  P.base.rotation.y = yaw;
+  P.base.position.set(ballHome.x, P.PIVOT_H, ballHome.z);
+
+  // Swing angle: driven by wheelProgress [1.0, 2.0] in SWING
+  //   [1.00 → 1.40] BACKSWING   0°     → -120°
+  //   [1.40 → 1.60] DOWNSWING  -120°   → +12°
+  //   [1.60 → 2.00] FOLLOW      +12°   → +55°
+  // In AIM, club rests at small address angle (~-2°) with a tiny waggle.
+  let angle = 0;
+  if (gameState === S_AIM) {
+    angle = -2 * DEG + Math.sin(tNow * 1.3) * 0.8 * DEG;
+  } else if (gameState === S_SWING) {
+    const p = Math.max(1, Math.min(2, wheelProgress));
+    if (p < 1.40) {
+      const f = (p - 1.00) / 0.40;
+      angle = THREE.MathUtils.lerp(0, -120 * DEG, smoothstep01(f));
+    } else if (p < 1.60) {
+      const f = (p - 1.40) / 0.20;
+      angle = THREE.MathUtils.lerp(-120 * DEG, 12 * DEG, f); // linear downswing = fastest at impact
+    } else {
+      const f = (p - 1.60) / 0.40;
+      angle = THREE.MathUtils.lerp(12 * DEG, 55 * DEG, smoothstep01(f));
+    }
+  } else if (gameState === S_ROLL || gameState === S_RESULT) {
+    // Hold the follow-through briefly, then return to address
+    const holdFor = 0.9;
+    const tSinceRoll = Math.max(0, tNow - rollStartTime);
+    if (tSinceRoll < holdFor) {
+      angle = 55 * DEG;
+    } else {
+      const f = Math.min(1, (tSinceRoll - holdFor) / 0.5);
+      angle = THREE.MathUtils.lerp(55 * DEG, -2 * DEG, smoothstep01(f));
+    }
+  }
+  P.pivot.rotation.x = angle;
+}
+
+function fireImpact(dir) {
+  // Apply an impulse along the aim direction. wheelSpeedEMA drives the
+  // magnitude. Ball physics are now custom (kinematic on the smooth
+  // analytical surface) — see stepBallPhysics for the integration.
+  const speed = Math.max(V_MIN, Math.min(V_MAX, wheelSpeedEMA * IMPACT_K));
+  const rec = currentTopoFn();
+  const surface = smoothSurfaceHeight(ballPos.x, ballPos.z, rec.fn, rec.intensity);
+  ballPos.y = GREEN_BASE_Y + surface.h + BALL_RADIUS;
+  ballVel.set(dir.x * speed, 0, dir.z * speed);
+  if (ballMesh) ballMesh.quaternion.set(0, 0, 0, 1);
+  swingImpactFired = true;
+}
+
+// Kinematic ball-on-surface physics. Cannon's heightfield introduces
+// triangulation artifacts (micro-bouncing, anisotropic friction drift)
+// that a putt can't tolerate. Instead we integrate analytically on the
+// smooth topology fn(): slope-projected gravity + rolling friction,
+// with the ball y clamped to the exact surface height each frame.
+// Cannon remains loaded but is not stepped during ROLL.
+const ROLL_FRICTION = 0.08;        // effective rolling-friction coefficient
+const SURFACE_EPS   = 0.05;        // finite-difference step for gradient
+
+// Smooth surface sampler — strips turfBump (the sub-cm rendering noise)
+// so the ball rolls on the analytical topology only, with NO bumps.
+// Mirrors sampleTurfHeight's edge fade and footprint checks.
+function smoothSurfaceHeight(x, z, fn, intensity) {
+  const localY = -z;
+  const theta = Math.atan2(localY, x);
+  const R = R_BASE * edgeShape(theta);
+  const r = Math.sqrt(x*x + z*z);
+  const rn = r / R;
+  let h = fn(x, localY) * intensity;
+  if (rn >= 1.0) {
+    h = 0;
+  } else if (rn > 0.72) {
+    const f = (rn - 0.72) / 0.28;
+    const e = f*f*f*(f*(f*6 - 15) + 10);
+    h = h * (1 - e);
+  }
+  return { h, rn };
+}
+
+function stepBallPhysics(dt) {
+  const rec = currentTopoFn();
+  const fn = rec.fn, intensity = rec.intensity;
+
+  // Surface sample + gradient on the SMOOTH surface (no turfBump noise).
+  const hC  = smoothSurfaceHeight(ballPos.x, ballPos.z, fn, intensity);
+  const hPx = smoothSurfaceHeight(ballPos.x + SURFACE_EPS, ballPos.z, fn, intensity);
+  const hMx = smoothSurfaceHeight(ballPos.x - SURFACE_EPS, ballPos.z, fn, intensity);
+  const hPz = smoothSurfaceHeight(ballPos.x, ballPos.z + SURFACE_EPS, fn, intensity);
+  const hMz = smoothSurfaceHeight(ballPos.x, ballPos.z - SURFACE_EPS, fn, intensity);
+  const gx = (hPx.h - hMx.h) / (2 * SURFACE_EPS);
+  const gz = (hPz.h - hMz.h) / (2 * SURFACE_EPS);
+
+  // Slope-projected gravity. The surface height h is a function of (x,z);
+  // the downhill force per unit mass in horizontal coords is
+  //   a = -g * ∇h / (1 + |∇h|²)
+  // which is the horizontal component of gravity after projecting onto
+  // the tangent plane.
+  const G = 9.82;
+  const denom = 1 + gx * gx + gz * gz;
+  ballVel.x += -G * gx / denom * dt;
+  ballVel.z += -G * gz / denom * dt;
+
+  // Rolling friction — decelerates proportional to effective normal force.
+  // For a nearly flat green the normal force ≈ g; on slopes we scale by
+  // 1/sqrt(1+|∇h|²) which is cos(tilt). Friction always opposes motion.
+  const speed = Math.sqrt(ballVel.x * ballVel.x + ballVel.z * ballVel.z);
+  if (speed > 1e-5) {
+    const normalScale = 1 / Math.sqrt(denom);
+    const decel = ROLL_FRICTION * G * normalScale * dt;
+    const newSpeed = Math.max(0, speed - decel);
+    const k = newSpeed / speed;
+    ballVel.x *= k;
+    ballVel.z *= k;
+  }
+
+  // Integrate position
+  ballPos.x += ballVel.x * dt;
+  ballPos.z += ballVel.z * dt;
+  // Ball rides exactly on the SMOOTH surface — no turfBump noise, no bouncing.
+  ballPos.y = GREEN_BASE_Y + smoothSurfaceHeight(ballPos.x, ballPos.z, fn, intensity).h + BALL_RADIUS;
+
+  // Shadow follows on xz
+  if (window.__ballShadow) {
+    window.__ballShadow.position.x = ballPos.x + 0.025;
+    window.__ballShadow.position.z = ballPos.z + 0.01;
+  }
+
+  // Roll the mesh visually — rotate around the axis perpendicular to
+  // motion in the horizontal plane. Angular speed = speed / radius.
+  const newSpeed = Math.sqrt(ballVel.x * ballVel.x + ballVel.z * ballVel.z);
+  if (ballMesh && newSpeed > 1e-4) {
+    const axisX = ballVel.z / newSpeed;
+    const axisZ = -ballVel.x / newSpeed;
+    const angularSpeed = newSpeed / BALL_RADIUS;
+    _ballSpinAxis.set(axisX, 0, axisZ);
+    ballMesh.rotateOnWorldAxis(_ballSpinAxis, angularSpeed * dt);
+  }
+
+  // Mirror into cannon body so it stays in sync (in case anything else reads it)
+  if (ballBody) {
+    ballBody.position.set(ballPos.x, ballPos.y, ballPos.z);
+    ballBody.velocity.set(ballVel.x, 0, ballVel.z);
+  }
+
+  // Hole capture
+  const dhx = ballPos.x - holePosVec.x;
+  const dhz = ballPos.z - holePosVec.z;
+  const holeDist = Math.sqrt(dhx * dhx + dhz * dhz);
+  if (holeDist < HOLE_CAPTURE_R && newSpeed < HOLE_CAPTURE_V_MAX) {
+    ballVel.set(0, 0, 0);
+    ballPos.x = holePosVec.x;
+    ballPos.z = holePosVec.z;
+    enterResult('holed');
+    return;
+  }
+
+  // Edge leave
+  if (hC.rn > EDGE_LEAVE_RN) {
+    ballVel.set(0, 0, 0);
+    enterResult('missed');
+    return;
+  }
+
+  // Settle — ball missed the hole and rolled to rest
+  if (newSpeed < 0.05) {
+    ballSettleCount++;
+    if (ballSettleCount > 18) {
+      enterResult('missed');
+      return;
+    }
+  } else {
+    ballSettleCount = 0;
+  }
+
+  // Timeout
+  if (performance.now() / 1000 - rollStartTime > ROLL_TIMEOUT) {
+    enterResult('missed');
+  }
+}
+const _ballSpinAxis = new THREE.Vector3();
+
+function enterResult(kind) {
+  resultKind = kind;
+  resultStart = performance.now() / 1000;
+  gameState = S_RESULT;
+  const chip = document.getElementById('resultChip');
+  if (chip) {
+    chip.textContent = (kind === 'holed') ? 'IN' : 'MISS';
+    chip.classList.toggle('miss', kind === 'missed');
+    chip.classList.add('show');
+  }
+}
+
+function resetToAim() {
+  ballPos.x = ballHome.x;
+  ballPos.z = ballHome.z;
+  ballPos.y = ballHome.y;
+  ballVel.set(0, 0, 0);
+  if (ballBody) {
+    ballBody.velocity.set(0, 0, 0);
+    ballBody.angularVelocity.set(0, 0, 0);
+    ballBody.position.set(ballHome.x, GREEN_BASE_Y + BALL_RADIUS, ballHome.z);
+    ballBody.quaternion.set(0, 0, 0, 1);
+    ballBody.wakeUp();
+  }
+  if (ballMesh) ballMesh.quaternion.set(0, 0, 0, 1);
+  if (window.__ballShadow) {
+    window.__ballShadow.position.x = ballHome.x + 0.025;
+    window.__ballShadow.position.z = ballHome.z + 0.01;
+    window.__ballShadow.material.opacity = 1;
+  }
+  swingImpactFired = false;
+  ballSettleCount = 0;
+  resultKind = null;
+  wheelProgress = 1.0;
+  wheelProgressTarget = 1.0;
+  wheelSpeedEMA = 0;
+  gameState = S_AIM;
+  const chip = document.getElementById('resultChip');
+  if (chip) chip.classList.remove('show', 'miss');
+  const cue = document.getElementById('scrollCueText');
+  if (cue) cue.textContent = 'Scroll to swing';
+  setPuttPrompt(true, 'Move mouse to aim · Scroll to swing');
+}
+
+function setPuttPrompt(show, text) {
+  const p = document.getElementById('puttPrompt');
+  const t = document.getElementById('puttPromptText');
+  if (!p) return;
+  if (text && t) t.textContent = text;
+  p.classList.toggle('show', !!show);
+}
+
+function stepInteraction(tNow, dt) {
+  // Ease wheelProgress toward target for smoothness (esp. trackpad jitter)
+  wheelProgress += (wheelProgressTarget - wheelProgress) * Math.min(1, dt * 12);
+  // Decay the wheel-speed EMA toward 0 when the user stops scrolling
+  wheelSpeedEMA *= Math.pow(0.35, dt);
+
+  // State transitions driven by wheelProgress
+  if (gameState === S_HERO) {
+    if (wheelProgressTarget > 0.02) {
+      gameState = S_APPROACH;
+      document.body.classList.add('fade-chrome');
+      const cue = document.getElementById('scrollCueText');
+      if (cue) cue.textContent = 'Approaching…';
+    }
+  } else if (gameState === S_APPROACH) {
+    if (wheelProgress >= 0.985 && wheelProgressTarget >= 0.985) {
+      gameState = S_AIM;
+      wheelProgress = 1.0;
+      wheelProgressTarget = 1.0;
+      setPuttPrompt(true, 'Move mouse to aim · Scroll to swing');
+      const cue = document.getElementById('scrollCueText');
+      if (cue) cue.textContent = 'Scroll to swing';
+    } else if (wheelProgressTarget < 0.015) {
+      gameState = S_HERO;
+      wheelProgress = 0;
+      wheelProgressTarget = 0;
+      document.body.classList.remove('fade-chrome');
+      const cue = document.getElementById('scrollCueText');
+      if (cue) cue.textContent = 'Scroll to aim';
+      setPuttPrompt(false);
+    }
+  } else if (gameState === S_AIM) {
+    if (wheelProgressTarget > 1.02) {
+      gameState = S_SWING;
+      swingImpactFired = false;
+      setPuttPrompt(true, 'Swing through…');
+    } else if (wheelProgressTarget < 0.98) {
+      // Scroll up from aim → back to approach/hero
+      gameState = S_APPROACH;
+      setPuttPrompt(false);
+      const cue = document.getElementById('scrollCueText');
+      if (cue) cue.textContent = 'Approaching…';
+    }
+  } else if (gameState === S_SWING) {
+    // Check for impact frame — pivot angle crossing zero during downswing
+    const p = wheelProgress;
+    if (!swingImpactFired && p >= 1.40) {
+      // Compute angle exactly like updatePutter to know when we cross 0
+      let angle;
+      if (p < 1.60) {
+        angle = THREE.MathUtils.lerp(-120 * DEG, 12 * DEG, (p - 1.40) / 0.20);
+      } else {
+        angle = 12 * DEG;
+      }
+      if (angle >= -2 * DEG) {
+        // Rebuild the heightfield so physics matches the surface the
+        // player is seeing right now (topology may have changed since
+        // init or the last roll).
+        rebuildTerrain();
+        const dir = aimDirection();
+        fireImpact(dir);
+        gameState = S_ROLL;
+        rollStartTime = tNow;
+        ballSettleCount = 0;
+        setPuttPrompt(false);
+      }
+    }
+    // Safety: if wheel stalls mid-swing, auto-advance toward 2.0
+    if (p < 2.0 && wheelSpeedEMA < 20 && p > 1.01) {
+      wheelProgressTarget = Math.min(2.0, wheelProgressTarget + dt * 0.9);
+    }
+  } else if (gameState === S_ROLL) {
+    stepBallPhysics(dt);
+  } else if (gameState === S_RESULT) {
+    const elapsed = tNow - resultStart;
+    const waitFor = (resultKind === 'holed') ? 1.35 : 0.75;
+    if (elapsed > waitFor) {
+      resetToAim();
+    }
+  }
+
+  // Visual updates
+  const aimVisible = (gameState === S_AIM || gameState === S_SWING);
+  updateAimLine(aimVisible);
+  // Club stays hidden during AIM — only appears once the user commits to a swing.
+  const putterVisible = (gameState === S_SWING
+                      || gameState === S_ROLL || gameState === S_RESULT);
+  updatePutter(putterVisible, tNow);
+
+  // Smooth aim
+  aimYaw += (aimYawTarget - aimYaw) * Math.min(1, dt * 10);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const tNow = performance.now() / 1000;
+  const dt = (__lastFrameTime < 0) ? 0.016 : Math.min(0.05, tNow - __lastFrameTime);
+  __lastFrameTime = tNow;
+  stepInteraction(tNow, dt);
+  updateGeometry(tNow);
+  updateCamera(tNow);
+  renderer.render(scene, camera);
+}
+
+init();
+animate();
+
+// Debug handle for in-browser inspection (module scope is otherwise isolated)
+window.__TP = {
+  get state() {
+    return {
+      gameState, wheelProgress, wheelProgressTarget, wheelSpeedEMA,
+      aimYaw, activeId,
+      ballPos: [ballPos.x, ballPos.y, ballPos.z],
+      ballVel: [ballVel.x, ballVel.y, ballVel.z],
+      settleCount: ballSettleCount,
+      resultKind
+    };
+  },
+  forceAim() {
+    gameState = S_AIM;
+    wheelProgress = 1.0;
+    wheelProgressTarget = 1.0;
+    document.body.classList.add('fade-chrome');
+  },
+  fire(speed, yawDeg) {
+    aimYaw = (yawDeg || 0) * DEG;
+    aimYawTarget = aimYaw;
+    ballPos.x = ballHome.x;
+    ballPos.z = ballHome.z;
+    const rec = reconfigState(performance.now() / 1000);
+    const surface = smoothSurfaceHeight(ballHome.x, ballHome.z, rec.fn, rec.intensity);
+    ballPos.y = GREEN_BASE_Y + surface.h + BALL_RADIUS;
+    if (ballMesh) ballMesh.quaternion.set(0, 0, 0, 1);
+    const dir = aimDirection();
+    ballVel.set(dir.x * speed, 0, dir.z * speed);
+    gameState = S_ROLL;
+    rollStartTime = performance.now() / 1000;
+    ballSettleCount = 0;
+    swingImpactFired = true;
+    resultKind = null;
+    const chip = document.getElementById('resultChip');
+    if (chip) chip.classList.remove('show', 'miss');
+  },
+  reset() { resetToAim(); },
+  selectTopo(id) { selectTopology(id, true); }
+};
+
+/* =================================================================
+   Wheel + pointer input — drives wheelProgress through the state
+   machine. preventDefault is called so the page itself never scrolls.
+   ================================================================= */
+function onWheel(e) {
+  // Let the phone UI's topology list scroll on its own — wheel events that
+  // originate inside .phone-wrap bypass the putting state machine entirely.
+  if (e.target && e.target.closest && e.target.closest('.phone-wrap')) return;
+  e.preventDefault();
+  const dy = Math.max(-WHEEL_CLAMP, Math.min(WHEEL_CLAMP, e.deltaY));
+  // Different sensitivity per state
+  let K = APPROACH_K;
+  if (gameState === S_SWING || (gameState === S_AIM && dy > 0)) K = SWING_K;
+  // Reverse from AIM uses the APPROACH-style slower sensitivity
+  if (gameState === S_AIM && dy < 0) K = APPROACH_K;
+
+  wheelProgressTarget += dy * K;
+
+  // Clamp by gameplay bounds
+  if (gameState === S_HERO || gameState === S_APPROACH) {
+    wheelProgressTarget = Math.max(0, Math.min(1, wheelProgressTarget));
+  } else if (gameState === S_AIM) {
+    wheelProgressTarget = Math.max(0, Math.min(2, wheelProgressTarget));
+  } else if (gameState === S_SWING) {
+    wheelProgressTarget = Math.max(1, Math.min(2, wheelProgressTarget));
+  } else {
+    // In ROLL/RESULT, ignore wheel
+    wheelProgressTarget = wheelProgress;
+    return;
+  }
+
+  // Update wheel-speed EMA (in "units/second" magnitude scale)
+  // |dy| is per-event; approximate freq ~60/s, so |dy| ≈ per-frame magnitude
+  const mag = Math.abs(dy);
+  wheelSpeedEMA = wheelSpeedEMA * 0.72 + mag * 0.28;
+
+  if (gameState === S_HERO) markInteraction();
+}
+
+function onPointerMove(e) {
+  pointerX = (e.clientX / window.innerWidth) * 2 - 1;
+  // Only meaningful in AIM; but update target always so entering AIM is smooth
+  aimYawTarget = pointerX * MAX_AIM;
+}
+
+window.addEventListener('wheel', onWheel, { passive: false });
+window.addEventListener('pointermove', onPointerMove);
+
+/* =================================================================
+   First-load idle demo — plays once, then replays a cycle every
+   ~45s of idle so the product keeps demonstrating itself while the
+   visitor lingers. Any user click resets the idle timer.
+   Only runs while gameState === S_HERO.
+   ================================================================= */
+let demoDone = false;
+let userHasInteracted = false;
+let lastInteractionTime = performance.now() / 1000;
+
+function markInteraction() {
+  userHasInteracted = true;
+  lastInteractionTime = performance.now() / 1000;
+  hint.style.opacity = 0;
+}
+// Wrap click path to track interactions without modifying selectTopology
+document.querySelectorAll('.topo-row').forEach(r => r.addEventListener('click', markInteraction));
+
+setTimeout(() => {
+  if (demoDone) return;
+  if (gameState !== S_HERO) return;
+  selectTopology('backstop', false);
+}, 2200);
+setTimeout(() => {
+  if (demoDone) return;
+  if (gameState !== S_HERO) return;
+  selectTopology('flat', false);
+  demoDone = true;
+}, 7200);
+
+/* Pulse the hint softly after the demo — ONLY if the user never
+   clicked. Once they do, markInteraction() pins it at 0 forever. */
+setTimeout(() => {
+  if (!userHasInteracted && gameState === S_HERO) hint.style.opacity = 0.55;
+}, 9000);
+
+/* Idle re-engage loop — cycles through interesting topologies so a
+   stalled visitor keeps seeing the product move. Hero-only. */
+const IDLE_CYCLE = ['goldenbell', 'bowl', 'sidehill', 'plateau', 'pinehurst', 'uphill', 'backstop', 'downhill'];
+let idleIdx = 0;
+setInterval(() => {
+  if (gameState !== S_HERO) return;
+  if (!demoDone) return;
+  if (transStart >= 0) return;
+  const now = performance.now() / 1000;
+  if (now - lastInteractionTime < 45) return;
+  if (activeId === 'flat') {
+    const pick = IDLE_CYCLE[idleIdx % IDLE_CYCLE.length];
+    idleIdx++;
+    selectTopology(pick, false);
+  } else {
+    selectTopology('flat', false);
+  }
+  lastInteractionTime = performance.now() / 1000;
+}, 5000);
+</script>
+</body>
+</html>
