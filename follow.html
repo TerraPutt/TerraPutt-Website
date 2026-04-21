@@ -182,11 +182,22 @@
   }
 
   @media (max-width: 640px) {
-    h1 { font-size: 56px; }
-    .wrap { padding: 140px 24px 120px; }
-    .nav { padding: 20px 24px; }
-    .foot { padding: 16px 24px; }
+    h1 { font-size: 44px; line-height: 1.02; }
+    .wrap { padding: 120px 24px 48px; }
+    .nav { padding: 16px 20px; }
+    .nav-left { gap: 10px; }
+    .wordmark { font-size: 12px; letter-spacing: 0.28em; }
+    .pill { font-size: 9px; padding: 3px 8px; letter-spacing: 0.18em; }
+
+    /* Let the footer flow at the end of content instead of covering
+       the form on small viewports. */
+    .foot {
+      position: relative; padding: 24px;
+      flex-wrap: wrap; gap: 8px;
+    }
+
     .row { grid-template-columns: 1fr; }
+    .submit { width: 100%; text-align: center; }
   }
 </style>
 </head>
