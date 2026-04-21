@@ -221,7 +221,7 @@
   .scroll-cue {
     position: fixed; bottom: 52px; right: 64px; z-index: 15;
     font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-dim);
+    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-mid);
     text-transform: uppercase;
     display: flex; align-items: center; gap: 10px;
     pointer-events: none;
@@ -236,6 +236,41 @@
     animation: slide 2.4s linear infinite;
   }
   @keyframes slide { to { left: 36px; } }
+
+  /* Directional chevron shared by scroll-cue and exit-hint.
+     Bob animation tells the viewer which way the wheel moves. */
+  .cue-chev {
+    width: 11px; height: 7px;
+    flex: none;
+    color: currentColor;
+    animation: cueBobDown 1.6s ease-in-out infinite;
+    opacity: 0.55;
+  }
+  .cue-chev.up { animation-name: cueBobUp; }
+  @keyframes cueBobDown {
+    0%, 100% { transform: translateY(-2px); opacity: 0.35; }
+    50%      { transform: translateY(2px);  opacity: 0.95; }
+  }
+  @keyframes cueBobUp {
+    0%, 100% { transform: translateY(2px);  opacity: 0.35; }
+    50%      { transform: translateY(-2px); opacity: 0.95; }
+  }
+
+  /* Secondary "scroll up to exit" hint, sits just above the scroll-cue.
+     Shown only during APPROACH and AIM (not SWING/ROLL/RESULT — nothing
+     to exit from then). Body class drives visibility so state transitions
+     in the interaction loop don't need to know about the DOM. */
+  .exit-hint {
+    position: fixed; bottom: 84px; right: 64px; z-index: 15;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-dim);
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  body.show-exit-hint .exit-hint { opacity: 1; }
 
   /* ------------- PHONE (bottom right as supporting product) ------------- */
   .phone-wrap {
@@ -577,6 +612,7 @@
     .phone-wrap,
     .specs,
     .scroll-cue,
+    .exit-hint,
     .putt-prompt,
     .result-chip,
     .hint {
@@ -670,8 +706,19 @@
 </div>
 
 <div class="scroll-cue">
-  <span id="scrollCueText">Scroll to aim</span>
+  <svg class="cue-chev" viewBox="0 0 12 8" aria-hidden="true">
+    <path d="M1 1.5 L6 6 L11 1.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
+  </svg>
+  <span id="scrollCueText">Scroll to begin</span>
   <span class="bar"></span>
+</div>
+
+<!-- "Scroll up to exit" secondary cue — shown during APPROACH and AIM -->
+<div class="exit-hint">
+  <svg class="cue-chev up" viewBox="0 0 12 8" aria-hidden="true">
+    <path d="M1 6.5 L6 2 L11 6.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
+  </svg>
+  <span>Scroll up to exit</span>
 </div>
 
 <!-- Shown only during AIM/SWING -->
@@ -2530,6 +2577,7 @@ function resetToAim() {
   wheelProgressTarget = 1.0;
   wheelSpeedEMA = 0;
   gameState = S_AIM;
+  document.body.classList.add('show-exit-hint');
   const chip = document.getElementById('resultChip');
   if (chip) chip.classList.remove('show', 'miss');
   const cue = document.getElementById('scrollCueText');
@@ -2556,6 +2604,7 @@ function stepInteraction(tNow, dt) {
     if (wheelProgressTarget > 0.02) {
       gameState = S_APPROACH;
       document.body.classList.add('fade-chrome');
+      document.body.classList.add('show-exit-hint');
       const cue = document.getElementById('scrollCueText');
       if (cue) cue.textContent = 'Approaching…';
     }
@@ -2572,14 +2621,16 @@ function stepInteraction(tNow, dt) {
       wheelProgress = 0;
       wheelProgressTarget = 0;
       document.body.classList.remove('fade-chrome');
+      document.body.classList.remove('show-exit-hint');
       const cue = document.getElementById('scrollCueText');
-      if (cue) cue.textContent = 'Scroll to aim';
+      if (cue) cue.textContent = 'Scroll to begin';
       setPuttPrompt(false);
     }
   } else if (gameState === S_AIM) {
     if (wheelProgressTarget > 1.02) {
       gameState = S_SWING;
       swingImpactFired = false;
+      document.body.classList.remove('show-exit-hint');
       setPuttPrompt(true, 'Swing through…');
     } else if (wheelProgressTarget < 0.98) {
       // Scroll up from aim → back to approach/hero
