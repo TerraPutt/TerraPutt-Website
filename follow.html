@@ -3,261 +3,241 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TerraPutt — Share your take</title>
+<title>TerraPutt — Request early access</title>
+<meta name="description" content="Apply for one of the first TerraPutt installations. Houston area, by application.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #eeece8;
-    --ink-mid: rgba(238,236,232,0.62);
-    --ink-dim: rgba(238,236,232,0.34);
-    --ink-faint: rgba(238,236,232,0.14);
-    --accent: #c9ff4a;
-    --warm: #f5c182;
-    --border: rgba(238,236,232,0.09);
+    --paper:    #f3efe6;
+    --paper-2:  #ece5d8;
+    --ink:      #1b1a16;
+    --ink-mid:  rgba(27,26,22,0.66);
+    --ink-dim:  rgba(27,26,22,0.42);
+    --ink-faint:rgba(27,26,22,0.18);
+    --green:    #2f4a33;
+    --green-2:  #243a28;
+    --brass:    #9a7b46;
+    --border:   rgba(27,26,22,0.14);
+    --stage:    #0c0b0a;
+    --on-dark:      #f1ece2;
+    --on-dark-mid:  rgba(241,236,226,0.64);
+    --on-dark-dim:  rgba(241,236,226,0.40);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; min-height: 100%;
-    background: #0a0a0c; color: var(--ink);
+    background: var(--paper); color: var(--ink);
     font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01";
+    line-height: 1.6;
   }
+  a { color: inherit; }
 
   /* NAV */
   .nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 28px 44px;
-    font-size: 12px; letter-spacing: 0.12em;
-    background: linear-gradient(180deg, rgba(10,10,12,0.9) 0%, rgba(10,10,12,0) 100%);
+    padding: 22px 40px;
+    background: rgba(243,239,230,0.9);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
   }
-  .nav-left { display: flex; align-items: center; gap: 14px; }
-  .wordmark {
-    font-weight: 500; letter-spacing: 0.32em; font-size: 13px;
-    text-transform: uppercase;
+  .nav .wordmark {
+    font-family: "Fraunces", serif; font-weight: 500; font-size: 21px;
+    letter-spacing: 0.01em; color: var(--ink); text-decoration: none;
   }
-  .wordmark a { text-decoration: none; color: inherit; }
-  .wordmark .t { color: var(--ink); }
-  .wordmark .p { color: var(--ink-mid); }
-  .pill {
-    padding: 4px 10px; border: 1px solid var(--border);
-    border-radius: 999px; color: var(--ink-mid); font-size: 10px;
-    letter-spacing: 0.22em; text-transform: uppercase;
-    font-family: "JetBrains Mono", monospace;
+  .nav .wordmark .p { color: var(--ink-mid); }
+  .nav .back {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; text-decoration: none; color: var(--ink-mid);
+    display: inline-flex; align-items: center; gap: 10px;
   }
-  .nav-right { display: flex; align-items: center; gap: 28px; color: var(--ink-mid); }
-  .nav-right a {
-    color: inherit; text-decoration: none; text-transform: uppercase;
-    font-size: 11px; letter-spacing: 0.18em;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .nav-right a .arrow {
-    display: inline-block; width: 14px; height: 1px;
-    background: currentColor; position: relative;
-  }
-  .nav-right a .arrow::before {
-    content: ''; position: absolute; left: 0; top: -3px;
-    width: 6px; height: 6px;
+  .nav .back .ar { width: 16px; height: 1px; background: currentColor; position: relative; }
+  .nav .back .ar::before {
+    content: ''; position: absolute; left: 0; top: -3px; width: 6px; height: 6px;
     border-left: 1px solid currentColor; border-bottom: 1px solid currentColor;
     transform: rotate(45deg);
   }
 
-  /* PAGE BODY */
-  .wrap {
-    max-width: 560px;
-    margin: 0 auto;
-    padding: 172px 32px 96px;
-  }
+  /* PAGE */
+  .wrap { max-width: 620px; margin: 0 auto; padding: 168px 40px 120px; }
   .eyebrow {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px; letter-spacing: 0.32em;
-    color: var(--ink-mid); text-transform: uppercase;
-    margin-bottom: 24px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .eyebrow::before {
-    content: ''; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 10px var(--accent);
-  }
-  h1 {
     font-family: "Inter Tight", sans-serif;
-    font-weight: 300;
-    font-size: 72px; line-height: 0.96;
-    letter-spacing: -0.035em;
-    margin: 0 0 24px;
-    color: var(--ink);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.26em;
+    text-transform: uppercase; color: var(--ink-dim);
+    display: inline-flex; align-items: center; gap: 12px; margin: 0 0 24px;
+  }
+  .eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--brass); }
+  h1 {
+    font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(40px, 7vw, 68px); line-height: 1.0; letter-spacing: -0.02em;
+    margin: 0 0 24px; color: var(--ink);
   }
   h1 em {
-    font-style: normal;
-    font-weight: 400;
-    background: linear-gradient(180deg, #fff 0%, #a8a89f 100%);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-style: italic; font-weight: 400; color: var(--green);
   }
   .sub {
-    font-size: 17px; line-height: 1.55; font-weight: 400;
-    color: var(--ink-mid);
-    letter-spacing: -0.005em;
-    margin: 0 0 48px;
-    max-width: 460px;
+    font-size: 18px; line-height: 1.6; color: var(--ink-mid);
+    margin: 0 0 14px; max-width: 50ch;
+  }
+  .price {
+    font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-dim); margin: 0 0 52px;
   }
 
   /* FORM */
-  form { display: flex; flex-direction: column; gap: 22px; }
-  .row {
-    display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px;
-  }
+  form { display: flex; flex-direction: column; gap: 26px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
   .field { display: flex; flex-direction: column; gap: 10px; }
   .field label {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    font-family: "Inter Tight", sans-serif;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--ink-dim);
   }
+  .field label .opt { color: var(--ink-faint); letter-spacing: 0.06em; }
   .field input,
   .field textarea {
-    background: transparent;
-    border: none; border-bottom: 1px solid var(--ink-faint);
+    background: transparent; border: none; border-bottom: 1px solid var(--ink-faint);
     padding: 10px 0; color: var(--ink);
-    font-family: "Inter Tight", sans-serif;
-    font-size: 16px; letter-spacing: -0.005em;
+    font-family: "Inter Tight", sans-serif; font-size: 17px; letter-spacing: -0.005em;
     transition: border-color 0.2s ease;
   }
-  .field textarea {
-    resize: vertical;
-    min-height: 80px;
-    line-height: 1.5;
-  }
-  .field input:focus,
-  .field textarea:focus {
-    outline: none; border-bottom-color: var(--accent);
-  }
-  .field input::placeholder,
-  .field textarea::placeholder { color: var(--ink-faint); }
-  .field input:invalid:not(:placeholder-shown) {
-    border-bottom-color: rgba(245,193,130,0.5);
-  }
+  .field textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
+  .field input:focus, .field textarea:focus { outline: none; border-bottom-color: var(--green); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--ink-faint); }
 
   .submit {
-    margin-top: 16px;
-    padding: 14px 28px;
-    background: var(--accent); color: #0a0a0c;
-    border: none; border-radius: 999px;
-    font-family: "Inter Tight", sans-serif;
-    font-weight: 500; font-size: 13px; letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.2s ease;
-    align-self: flex-start;
+    margin-top: 14px; align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 16px 30px; background: var(--green); color: var(--paper);
+    border: 1px solid var(--green); border-radius: 999px;
+    font-family: "Inter Tight", sans-serif; font-weight: 500; font-size: 13px;
+    letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease;
   }
-  .submit:hover {
-    box-shadow: 0 0 24px rgba(201,255,74,0.35);
-    transform: translateY(-1px);
+  .submit .ar { width: 16px; height: 1px; background: currentColor; position: relative; }
+  .submit .ar::after {
+    content: ''; position: absolute; right: 0; top: -3px; width: 6px; height: 6px;
+    border-top: 1px solid currentColor; border-right: 1px solid currentColor;
+    transform: rotate(45deg);
   }
-  .submit:active { transform: translateY(0); }
+  .submit:hover { transform: translateY(-1px); background: var(--green-2); box-shadow: 0 14px 36px rgba(36,58,40,0.3); }
 
   .note {
-    margin-top: 36px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-dim); line-height: 1.8;
+    margin-top: 30px; font-size: 13px; line-height: 1.7; color: var(--ink-dim);
+    max-width: 48ch;
   }
-  .note .hl { color: var(--accent); }
 
   /* Thanks state */
   .thanks { display: none; }
   body.sent form { display: none; }
+  body.sent .note { display: none; }
   body.sent .thanks { display: block; }
+  .thanks .sub { margin-bottom: 0; }
 
-  /* Footer */
+  /* FOOTER */
   .foot {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    padding: 20px 44px;
-    display: flex; justify-content: space-between;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-dim);
+    background: var(--stage); color: var(--on-dark-dim);
+    padding: 30px 40px;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
   }
+  .foot .wordmark { font-family: "Fraunces", serif; font-weight: 500; font-size: 17px; color: var(--on-dark); text-decoration: none; }
+  .foot .wordmark .p { color: var(--on-dark-mid); }
+  .foot .f-meta { font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
 
   @media (max-width: 640px) {
-    h1 { font-size: 44px; line-height: 1.02; }
-    .wrap { padding: 120px 24px 48px; }
-    .nav { padding: 16px 20px; }
-    .nav-left { gap: 10px; }
-    .wordmark { font-size: 12px; letter-spacing: 0.28em; }
-    .pill { font-size: 9px; padding: 3px 8px; letter-spacing: 0.18em; }
-
-    /* Let the footer flow at the end of content instead of covering
-       the form on small viewports. */
-    .foot {
-      position: relative; padding: 24px;
-      flex-wrap: wrap; gap: 8px;
-    }
-
-    .row { grid-template-columns: 1fr; }
-    .submit { width: 100%; text-align: center; }
+    .wrap { padding: 120px 24px 64px; }
+    .nav { padding: 16px 22px; }
+    .row { grid-template-columns: 1fr; gap: 26px; }
+    .submit { width: 100%; justify-content: center; }
+    .foot { padding: 24px; }
   }
 </style>
 </head>
 <body>
 
 <nav class="nav">
-  <div class="nav-left">
-    <div class="wordmark"><a href="/"><span class="t">Terra</span><span class="p">Putt</span></a></div>
-    <div class="pill">Early concept</div>
-  </div>
-  <div class="nav-right">
-    <a href="/"><span class="arrow"></span>Back</a>
-  </div>
+  <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
+  <a class="back" href="/"><span class="ar"></span>Back</a>
 </nav>
 
 <main class="wrap">
-  <div class="eyebrow">Early concept · Before we build it</div>
-  <h1>Tell us<br><em>what you think.</em></h1>
-  <p class="sub">We're early — an idea, a prototype, and a lot of open questions. If a reshapable outdoor putting green in your backyard is something you'd actually want, we want to hear from you. We'll share what we learn as we go.</p>
+  <div class="eyebrow">Early access — Houston, by application</div>
+  <h1>Request <em>early access.</em></h1>
+  <p class="sub">The first installations are taken by application. Tell us a little about your home and your game, and we'll be in touch personally — not with a newsletter.</p>
+  <p class="price">Investment-grade installations · Pricing on application</p>
 
-  <form id="followForm"
-        name="follow-build"
+  <form id="accessForm"
+        name="early-access"
         method="POST"
         data-netlify="true"
         data-netlify-honeypot="bot-field"
         novalidate>
-    <input type="hidden" name="form-name" value="follow-build">
+    <input type="hidden" name="form-name" value="early-access">
     <p style="display:none">
       <label>Leave this empty: <input name="bot-field"></label>
     </p>
-    <div class="field">
-      <label for="firstName">First name</label>
-      <input id="firstName" name="firstName" type="text" required>
+
+    <div class="row">
+      <div class="field">
+        <label for="firstName">First name</label>
+        <input id="firstName" name="firstName" type="text" autocomplete="given-name" required>
+      </div>
+      <div class="field">
+        <label for="lastName">Last name</label>
+        <input id="lastName" name="lastName" type="text" autocomplete="family-name" required>
+      </div>
     </div>
-    <div class="field">
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" placeholder="you@domain.com" required>
+
+    <div class="row">
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="you@domain.com" required>
+      </div>
+      <div class="field">
+        <label for="city">City</label>
+        <input id="city" name="city" type="text" placeholder="Houston, TX" required>
+      </div>
     </div>
-    <div class="field">
-      <label for="thoughts">What would make this interesting to you? <span style="opacity:0.55; text-transform:none; letter-spacing:0; font-family:inherit;">(optional)</span></label>
-      <textarea id="thoughts" name="thoughts" rows="4" placeholder="The putt you'd practice first. What you wish your current setup did. Or anything that comes to mind."></textarea>
+
+    <div class="row">
+      <div class="field">
+        <label for="homeType">Home type</label>
+        <input id="homeType" name="homeType" type="text" placeholder="Primary residence, second home, estate…" required>
+      </div>
+      <div class="field">
+        <label for="handicap">Golf handicap <span class="opt">— optional</span></label>
+        <input id="handicap" name="handicap" type="text" placeholder="e.g. 8">
+      </div>
     </div>
-    <button type="submit" class="submit">Share your take</button>
+
+    <div class="field">
+      <label for="message">Anything you'd like us to know <span class="opt">— optional</span></label>
+      <textarea id="message" name="message" rows="4" placeholder="The hole you'd build first. Where it would go in the yard. What you're looking for."></textarea>
+    </div>
+
+    <button type="submit" class="submit">Submit application <span class="ar"></span></button>
   </form>
 
   <div class="thanks">
-    <h1>Thanks.<br><em>We hear you.</em></h1>
-    <p class="sub">We'll send you something when we have something worth sending — updates as the concept evolves, questions when we're stuck, and a heads-up long before any of this is real.</p>
+    <h1>Received.<br><em>We'll be in touch.</em></h1>
+    <p class="sub">Someone from TerraPutt will reach out personally — usually within a day or two — to learn more about your property and your game. No autoresponder, no list.</p>
   </div>
 
-  <p class="note">No spam · Unsubscribe any time · We're genuinely at the sketch stage</p>
+  <p class="note">We read every application by hand. The first installations are limited and Houston-area; we'll tell you honestly where things stand.</p>
 </main>
 
 <div class="foot">
-  <span>Early concept</span>
-  <span>© TerraPutt</span>
+  <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
+  <span class="f-meta">Houston · By application · © TerraPutt</span>
 </div>
 
 <script>
-  const form = document.getElementById('followForm');
+  const form = document.getElementById('accessForm');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -272,8 +252,8 @@
       document.body.classList.add('sent');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error('[follow-signup] submit error', err);
-      alert("Couldn't submit — try again in a moment.");
+      console.error('[early-access] submit error', err);
+      alert("Couldn't submit — please try again in a moment.");
     }
   });
 </script>

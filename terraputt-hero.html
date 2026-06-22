@@ -1,626 +1,386 @@
 <!--
-  TerraPutt — Rev B Hero
+  TerraPutt — Hero (luxury-editorial rev)
   ---------------------------------------------------------------
-  CONCEPT
-  A cinematic product-shot stage. The green is the hero —
-  shot like a Dyson fan or Rivian wheel on a dark seamless floor,
-  with warm key light and cool fill. The iPhone sits as a
-  supporting object, anchored bottom-right, composed as if it
-  were a second physical product on the same stage rather than
-  a UI panel floating in space.
+  A permanent, designed outdoor installation for a serious home —
+  not a practice aid, not a gadget. The page is read like an
+  editorial spread, not a tech demo: a cinematic dusk product shot
+  of the surface up top, then long-form sections that breathe.
 
-  RENDERING APPROACH
-  Three.js + WebGL. The brief requires showing a physical
-  deformation of the ground in real time in response to a tap,
-  which rules out video loops, stills, and Lottie. A shader-
-  driven turf surface with per-vertex noise, mowing stripes,
-  anisotropic sheen, and a soft contact shadow gives the
-  fidelity ceiling we can reach in a single file.
+  POSITIONING
+  - First putting surface that physically reshapes on command.
+  - Houston, by application. First installations are curated.
+  - The mechanism stays scrubbed (pre-patent): we describe what
+    it does, never how. No "motorized / actuator / pneumatic".
 
-  CAMERA / COMPOSITION
-  - Slow 8-second dolly on idle (never ambient pulsing of the
-    green itself — the camera moves, the product rests).
-  - First load: one unprompted idle demo — a single topology
-    swap — so the viewer understands the product category
-    without being told.
-  - Green is composed center-left; phone is composed bottom-
-    right; headline sits upper-left in negative space. No
-    panel chrome, no gradients behind the headline.
+  TYPE        Fraunces (editorial high-contrast serif) for display,
+              Inter Tight for body. No mono datasheet register.
+  COLOR       Warm stone / off-white page, matte near-black ink,
+              deep warm green brand, restrained brass accent. The
+              demo itself is a dark dusk render (golden-hour stage).
 
-  COPY DECISIONS
-  Voice: Teenage Engineering / Rivian / Dyson. No exclamation
-  marks. No "unlock / elevate / revolutionary". Technical
-  literacy is the flex.
-
-    Headline:    "The ground, on command."
-    Sub:         "A connected outdoor putting surface that reshapes
-                  on demand. Set the break, pick the hole, change
-                  the slope. Touch a shape."
-    Eyebrow:     "TerraPutt · Early concept"
-    Phone title: "Surface"  (not "Topology" — more direct)
-    Spec chip:   "Profiles · Unlimited · Reconfigure < 10s"
-
-  INTERACTION SPEC
-  - Five topologies: Flat, Back Mound, Right Ridge, Center Bowl,
-    Tier, Cross Slope.
-  - Reconfigure has four phases: anticipation (small pre-dip),
-    lower, relief ripple traveling outward from the feature's
-    epicenter, rise with settle micro-bounce.
-  - First-load idle demo: selects "Back Mound" 2.5s after load,
-    returns to Flat 5s after that. Plays exactly once.
+  DEMO        The interactive putting mini-game is retired (no
+              scroll-jacking). The surface auto-loops between
+              topologies as the looping motion asset. The Three.js
+              engine below is unchanged except: wheel hijack off,
+              continuous reshape loop, warmed lighting/ground.
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>TerraPutt — a backyard putting green that reshapes on demand</title>
+<title>TerraPutt — an outdoor putting surface that reshapes on command</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="TerraPutt is a connected outdoor putting surface that physically reshapes on command — any break, any topology, any hole. First installations: Houston, by application.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-0: #0a0a0b;
-    --bg-1: #121215;
-    --bg-2: #1b1b1f;
-    --ink: #eeece8;
-    --ink-mid: rgba(238,236,232,0.62);
-    --ink-dim: rgba(238,236,232,0.34);
-    --ink-faint: rgba(238,236,232,0.14);
-    --accent: #c9ff4a;     /* electric lime — premium tech, not golf */
-    --warm: #f5c182;
-    --border: rgba(238,236,232,0.09);
+    /* warm-stone editorial page */
+    --paper:    #f3efe6;
+    --paper-2:  #ece5d8;
+    --ink:      #1b1a16;
+    --ink-mid:  rgba(27,26,22,0.66);
+    --ink-dim:  rgba(27,26,22,0.42);
+    --ink-faint:rgba(27,26,22,0.15);
+    --green:    #2f4a33;
+    --green-2:  #243a28;
+    --brass:    #9a7b46;
+    --border:   rgba(27,26,22,0.14);
+    /* dark dusk hero stage */
+    --stage:        #0c0b0a;
+    --on-dark:      #f1ece2;
+    --on-dark-mid:  rgba(241,236,226,0.64);
+    --on-dark-dim:  rgba(241,236,226,0.40);
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   html, body {
-    margin: 0; padding: 0; height: 100%; overflow: hidden;
-    background: var(--bg-0); color: var(--ink);
+    margin: 0; padding: 0;
+    background: var(--paper); color: var(--ink);
     font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01";
+    overflow-x: hidden;
   }
-  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  body { line-height: 1.6; }
+  a { color: inherit; }
 
-  /* ------------- STAGE ------------- */
-  /* Subtle open-air feel: a faint warm "sky" band at the top fading
-     into a darker "ground" at the bottom, with a light pool around
-     the green. Just enough vertical bias to cue "outdoor" without
-     painting a literal sky. */
-  #stage {
-    position: fixed; inset: 0;
-    background: #0a0a0c;
-  }
-  #canvas-host { position: absolute; inset: 0; }
-
-  /* subtle film grain */
-  #grain {
-    position: fixed; inset: 0; pointer-events: none; z-index: 20;
-    opacity: 0.05; mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  }
-  /* vignette */
-  #vignette {
-    position: fixed; inset: 0; pointer-events: none; z-index: 19;
-    background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%);
-  }
-
-  /* ------------- NAV CHROME ------------- */
-  .nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 28px 44px;
-    font-size: 12px; letter-spacing: 0.12em;
-  }
-  .nav-left { display: flex; align-items: center; gap: 14px; }
-  .wordmark {
-    font-weight: 500; letter-spacing: 0.32em; font-size: 13px;
-    text-transform: uppercase;
-  }
-  .wordmark .t { color: var(--ink); }
-  .wordmark .p { color: var(--ink-mid); }
-  .wordmark a { color: inherit; text-decoration: none; }
-  .pill {
-    padding: 4px 10px; border: 1px solid var(--border);
-    border-radius: 999px; color: var(--ink-mid); font-size: 10px;
-    letter-spacing: 0.22em; text-transform: uppercase;
-    font-family: "JetBrains Mono", monospace;
-  }
-  .nav-right { display: flex; align-items: center; gap: 28px; color: var(--ink-mid); }
-  .nav-right a { color: inherit; text-decoration: none; text-transform: uppercase; font-size: 11px; letter-spacing: 0.18em; }
-  .nav-cta {
-    padding: 8px 14px; border: 1px solid var(--ink-faint);
-    border-radius: 999px; color: var(--ink) !important;
-  }
-
-  /* ------------- HEADLINE BLOCK ------------- */
-  .headline {
-    position: fixed; z-index: 15;
-    top: 128px; left: 64px; max-width: 620px;
-    pointer-events: none;
-  }
+  /* shared typographic atoms */
+  .serif { font-family: "Fraunces", Georgia, serif; }
   .eyebrow {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px; letter-spacing: 0.32em;
-    color: var(--ink-mid); text-transform: uppercase;
-    margin-bottom: 6px;
-    display: flex; align-items: center; gap: 10px;
+    font-family: "Inter Tight", sans-serif;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.26em;
+    text-transform: uppercase; color: var(--ink-dim);
+    display: inline-flex; align-items: center; gap: 12px;
+    margin: 0 0 26px;
   }
   .eyebrow::before {
-    content: ''; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 10px var(--accent);
+    content: ''; width: 22px; height: 1px; background: var(--brass);
   }
-  /* Secondary orienting line — anchors the outdoor positioning
-     before the poetic headline lands. Indented past the dot so it
-     aligns with the eyebrow text above it. */
-  .eyebrow-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.32em;
-    color: var(--ink-dim); text-transform: uppercase;
-    margin-left: 16px;
-    margin-bottom: 22px;
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+
+  /* ===================== NAV ===================== */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 40px;
+    transition: background 0.4s ease, border-color 0.4s ease, padding 0.4s ease;
+    border-bottom: 1px solid transparent;
   }
-  h1.hero {
+  .nav .wordmark {
+    font-family: "Fraunces", serif;
+    font-weight: 500; font-size: 21px; letter-spacing: 0.01em;
+    color: var(--on-dark); text-decoration: none;
+    transition: color 0.4s ease;
+  }
+  .nav .wordmark .p { color: var(--on-dark-mid); }
+  .nav-right { display: flex; align-items: center; gap: 26px; }
+  .nav-tag {
     font-family: "Inter Tight", sans-serif;
-    font-weight: 300;
-    font-size: 88px; line-height: 0.94;
-    letter-spacing: -0.035em;
-    margin: 0 0 28px;
-    color: var(--ink);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--on-dark-dim);
+    transition: color 0.4s ease;
   }
-  h1.hero em {
-    font-style: normal;
-    font-weight: 400;
-    background: linear-gradient(180deg, #fff 0%, #a8a89f 100%);
+  .nav-cta {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; text-decoration: none;
+    color: var(--on-dark);
+    padding: 10px 18px; border-radius: 999px;
+    border: 1px solid rgba(241,236,226,0.32);
+    transition: all 0.3s ease;
+  }
+  .nav-cta:hover { background: var(--on-dark); color: var(--stage); border-color: var(--on-dark); }
+  /* solid state once scrolled off the hero */
+  body.nav-solid .nav {
+    background: rgba(243,239,230,0.9);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom-color: var(--border);
+    padding: 16px 40px;
+  }
+  body.nav-solid .nav .wordmark { color: var(--ink); }
+  body.nav-solid .nav .wordmark .p { color: var(--ink-mid); }
+  body.nav-solid .nav-tag { color: var(--ink-dim); }
+  body.nav-solid .nav-cta { color: var(--ink); border-color: var(--border); }
+  body.nav-solid .nav-cta:hover { background: var(--green); color: var(--paper); border-color: var(--green); }
+  .nav-tag.hide-sm { }
+
+  /* ===================== HERO ===================== */
+  .hero {
+    position: relative;
+    min-height: 100vh; min-height: 100svh;
+    width: 100%;
+    background: var(--stage);
+    overflow: hidden;
+  }
+  #stage { position: absolute; inset: 0; background: var(--stage); }
+  #canvas-host { position: absolute; inset: 0; }
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: radial-gradient(ellipse 78% 70% at 52% 46%, transparent 52%, rgba(0,0,0,0.62) 100%);
+  }
+  #grain {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    opacity: 0.035; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  /* warm dawn band across the very top of the stage so it reads outdoor */
+  .hero::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 38%;
+    z-index: 2; pointer-events: none;
+    background: linear-gradient(180deg, rgba(58,44,28,0.5) 0%, rgba(30,24,16,0.12) 55%, transparent 100%);
+  }
+  /* legibility scrim — anchors the copy on the left and bottom without
+     a card, so text stays readable over the lit green */
+  .hero::after {
+    content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+    background:
+      linear-gradient(95deg, rgba(8,7,6,0.86) 0%, rgba(8,7,6,0.52) 28%, rgba(8,7,6,0.10) 52%, transparent 66%),
+      linear-gradient(0deg, rgba(8,7,6,0.72) 0%, rgba(8,7,6,0.0) 24%);
+  }
+  .hero-overlay {
+    position: absolute; inset: 0; z-index: 6;
+    display: flex; flex-direction: column; justify-content: center;
+    pointer-events: none;
+  }
+  .hero-inner { max-width: 1120px; width: 100%; margin: 0 auto; padding: 0 40px; }
+  .hero .eyebrow { color: var(--on-dark-dim); margin-bottom: 22px; }
+  .hero .eyebrow::before { background: var(--brass); width: 26px; }
+  h1.hero-title {
+    font-family: "Fraunces", serif;
+    font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(46px, 8.2vw, 116px);
+    line-height: 0.98; letter-spacing: -0.02em;
+    margin: 0 0 30px; color: var(--on-dark);
+    max-width: 12ch;
+  }
+  h1.hero-title em {
+    font-style: italic; font-weight: 400;
+    background: linear-gradient(180deg, #fbf7ee 0%, #b7a98e 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .sub {
-    font-size: 17px; line-height: 1.55; font-weight: 400;
-    color: var(--ink-mid); max-width: 440px;
-    letter-spacing: -0.005em;
+  .hero-sub {
+    font-size: clamp(16px, 1.5vw, 20px); line-height: 1.6;
+    font-weight: 400; color: var(--on-dark-mid);
+    max-width: 50ch; margin: 0 0 38px;
   }
-
-  /* live topology name (under sub) */
-  .live-row {
-    margin-top: 36px;
-    display: flex; align-items: center; gap: 16px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--ink-dim);
+  .hero-sub strong { color: var(--on-dark); font-weight: 500; }
+  .hero-actions { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; pointer-events: auto; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: "Inter Tight", sans-serif;
+    font-size: 13px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; text-decoration: none;
+    background: var(--green); color: var(--paper);
+    padding: 16px 28px; border-radius: 999px;
+    border: 1px solid var(--green);
+    transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease;
   }
+  .btn-primary .ar {
+    width: 16px; height: 1px; background: currentColor; position: relative;
+  }
+  .btn-primary .ar::after {
+    content: ''; position: absolute; right: 0; top: -3px;
+    width: 6px; height: 6px;
+    border-top: 1px solid currentColor; border-right: 1px solid currentColor;
+    transform: rotate(45deg);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(36,58,40,0.35); background: var(--green-2); }
+  .hero-meta {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--on-dark-dim);
+  }
+  /* live "now reshaping" caption, lower-left of the hero */
+  .hero-live {
+    position: absolute; left: 0; right: 0; bottom: 40px; z-index: 6;
+    pointer-events: none;
+  }
+  .hero-live .wrap { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
   .live-name {
-    color: var(--ink);
-    padding: 6px 12px; border: 1px solid var(--ink-faint);
-    border-radius: 4px;
-    min-width: 180px;
-    display: inline-flex; align-items: center; gap: 10px;
+    display: inline-flex; align-items: center; gap: 11px;
+    font-family: "Inter Tight", sans-serif;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--on-dark-mid);
   }
   .live-name .dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+    background: var(--brass); box-shadow: 0 0 8px rgba(154,123,70,0.8);
   }
-  .live-name .dot.working { background: var(--warm); box-shadow: 0 0 6px var(--warm); animation: blink 0.7s ease-in-out infinite; }
-  @keyframes blink { 50% { opacity: 0.3; } }
-
-  /* ------------- SPECS STRIP (bottom-left) ------------- */
-  .specs {
-    position: fixed; bottom: 44px; left: 64px; z-index: 15;
-    display: flex; gap: 28px; pointer-events: none;
-  }
-  .spec {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px; letter-spacing: 0.06em;
-    color: var(--ink-mid);
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .spec .k { color: var(--ink-dim); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.22em; }
-  .spec .v { color: var(--ink); font-size: 17px; letter-spacing: 0.02em; font-weight: 500; }
-  .spec .v em { font-style: normal; color: var(--ink-mid); font-size: 12px; margin-left: 2px; font-weight: 400; }
-
-  /* bottom-right scroll cue */
-  .scroll-cue {
-    position: fixed; bottom: 52px; right: 64px; z-index: 15;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-mid);
-    text-transform: uppercase;
-    display: flex; align-items: center; gap: 10px;
-    pointer-events: none;
-  }
-  .scroll-cue .bar {
-    width: 36px; height: 1px; background: var(--ink-faint);
-    position: relative; overflow: hidden;
-  }
-  .scroll-cue .bar::after {
-    content: ''; position: absolute; left: -36px; top: 0;
-    width: 36px; height: 1px; background: var(--ink);
-    animation: slide 2.4s linear infinite;
-  }
-  @keyframes slide { to { left: 36px; } }
-
-  /* Directional chevron shared by scroll-cue and exit-hint.
-     Bob animation tells the viewer which way the wheel moves. */
-  .cue-chev {
-    width: 11px; height: 7px;
-    flex: none;
-    color: currentColor;
-    animation: cueBobDown 1.6s ease-in-out infinite;
-    opacity: 0.55;
-  }
-  .cue-chev.up { animation-name: cueBobUp; }
-  @keyframes cueBobDown {
-    0%, 100% { transform: translateY(-2px); opacity: 0.35; }
-    50%      { transform: translateY(2px);  opacity: 0.95; }
-  }
-  @keyframes cueBobUp {
-    0%, 100% { transform: translateY(2px);  opacity: 0.35; }
-    50%      { transform: translateY(-2px); opacity: 0.95; }
-  }
-
-  /* Secondary "scroll up to exit" hint, sits just above the scroll-cue.
-     Shown only during APPROACH and AIM (not SWING/ROLL/RESULT — nothing
-     to exit from then). Body class drives visibility so state transitions
-     in the interaction loop don't need to know about the DOM. */
-  .exit-hint {
-    position: fixed; bottom: 84px; right: 64px; z-index: 15;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.28em; color: var(--ink-dim);
-    text-transform: uppercase;
-    display: flex; align-items: center; gap: 10px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-  }
-  body.show-exit-hint .exit-hint { opacity: 1; }
-
-  /* ------------- PHONE (bottom right as supporting product) ------------- */
-  .phone-wrap {
-    position: fixed; z-index: 12;
-    right: 72px; top: 50%;
-    transform: translateY(-50%) scale(0.88);
-    transform-origin: center right;
-    filter: drop-shadow(-24px 40px 80px rgba(0,0,0,0.7));
-  }
-  .phone {
-    width: 320px; height: 658px;
-    background: #0b0b0c;
-    border-radius: 48px;
-    border: 1.5px solid #2a2a2d;
-    box-shadow:
-      0 40px 100px rgba(0,0,0,0.7),
-      inset 0 0 0 8px #050506,
-      inset 0 1px 0 rgba(255,255,255,0.04);
-    padding: 10px;
-    position: relative;
-  }
-  .phone::before {
-    content: ''; position: absolute;
-    top: 20px; left: 50%; transform: translateX(-50%);
-    width: 96px; height: 28px; background: #050506;
-    border-radius: 16px; z-index: 3;
-  }
-  .phone-screen {
-    width: 100%; height: 100%;
-    border-radius: 40px;
-    overflow: hidden;
-    position: relative;
-    background:
-      radial-gradient(ellipse 90% 60% at 50% 0%, #1a1a1e 0%, #0c0c0e 60%),
-      #0a0a0c;
-  }
-  .status-bar {
-    position: absolute; top: 0; left: 0; right: 0; height: 50px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 30px; font-size: 13.5px; font-weight: 600;
-    color: rgba(255,255,255,0.92);
-    letter-spacing: -0.01em;
-  }
-  .status-bar .icons { display: flex; gap: 5px; align-items: center; font-size: 11px; }
-  .icons svg { width: 16px; height: 11px; }
-
-  .app { padding: 60px 20px 22px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
-  .app-header {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-bottom: 4px;
-  }
-  .app-device {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9.5px; letter-spacing: 0.22em; color: rgba(201,255,74,0.75);
-    text-transform: uppercase;
-  }
-  .app-time {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9.5px; letter-spacing: 0.18em; color: rgba(255,255,255,0.35);
-    text-transform: uppercase;
-  }
-  .app-title {
+  .live-name .dot.working { animation: pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .scrolltip {
     font-family: "Inter Tight", sans-serif;
-    font-size: 30px; font-weight: 400; letter-spacing: -0.02em;
-    color: #fff; margin: 6px 0 4px;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--on-dark-dim);
+    display: inline-flex; align-items: center; gap: 10px;
   }
-  .app-sub {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.14em; color: rgba(255,255,255,0.4);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
+  .scrolltip .v { width: 1px; height: 20px; background: linear-gradient(180deg, var(--on-dark-dim), transparent); }
 
+  /* ===================== SECTIONS ===================== */
+  section { position: relative; }
+  .band { padding: clamp(88px, 12vw, 168px) 0; }
+  .band.alt { background: var(--paper-2); }
+  .section-head { max-width: 760px; }
+  h2.display {
+    font-family: "Fraunces", serif;
+    font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(32px, 4.6vw, 60px);
+    line-height: 1.04; letter-spacing: -0.015em;
+    margin: 0; color: var(--ink);
+  }
+  h2.display em { font-style: italic; color: var(--green); }
+  .lede {
+    font-size: clamp(17px, 1.5vw, 21px); line-height: 1.62;
+    color: var(--ink-mid); max-width: 60ch; margin: 28px 0 0;
+  }
+  .lede strong { color: var(--ink); font-weight: 500; }
 
-  .topo-list {
-    display: flex; flex-direction: column; gap: 4px;
-    flex: 1; min-height: 0;
-    overflow-y: auto;
-    padding-right: 2px;
-    scrollbar-width: none;
-    /* soft fade at the scroll edges */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 6px, black calc(100% - 6px), transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0, black 6px, black calc(100% - 6px), transparent 100%);
+  /* topology catalog */
+  .catalog { margin-top: 64px; display: grid; gap: 40px; }
+  .cat-group { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: baseline; padding-top: 28px; border-top: 1px solid var(--border); }
+  .cat-label {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--brass);
   }
-  .topo-list::-webkit-scrollbar { width: 0; height: 0; }
-
-  /* Section header between topology groups */
-  .topo-group {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8.5px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: rgba(255,255,255,0.32);
-    padding: 8px 4px 3px;
-  }
-  .topo-group:first-child { padding-top: 2px; }
-
-  .topo-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 10px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
-    -webkit-tap-highlight-color: transparent;
-  }
-  .topo-row:hover {
-    background: rgba(255,255,255,0.045);
-    border-color: rgba(255,255,255,0.12);
-  }
-  .topo-row.active {
-    background: rgba(201,255,74,0.07);
-    border-color: rgba(201,255,74,0.45);
-    box-shadow: 0 0 0 1px rgba(201,255,74,0.15), 0 4px 16px rgba(201,255,74,0.08);
-  }
-  .topo-row.active .topo-idx { color: var(--accent); }
-  .topo-row.active .topo-name { color: #f4ffe0; }
-  .topo-icon {
-    width: 28px; height: 28px; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.3); border-radius: 7px;
-    border: 1px solid rgba(255,255,255,0.05);
-  }
-  .topo-icon svg { width: 19px; height: 19px; }
-  .topo-body { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .topo-name {
-    font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,0.88);
+  .cat-items {
+    font-family: "Fraunces", serif; font-weight: 300;
+    font-size: clamp(22px, 2.6vw, 33px); line-height: 1.32; color: var(--ink);
     letter-spacing: -0.01em;
   }
-  .topo-meta {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
-  }
-  .topo-idx {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9.5px; color: rgba(255,255,255,0.3);
-    letter-spacing: 0.08em;
-  }
+  .cat-items span { color: var(--ink-faint); margin: 0 14px; font-family: "Inter Tight", sans-serif; }
 
-  .app-footer {
-    margin-top: auto; padding-top: 14px;
-    display: flex; flex-direction: column; gap: 8px;
+  /* assurances */
+  .assure { margin-top: 60px; border-top: 1px solid var(--border); }
+  .assure-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: baseline;
+    padding: 28px 0; border-bottom: 1px solid var(--border);
   }
-  .telemetry {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 12px;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: rgba(255,255,255,0.45);
+  .assure-row .a-text {
+    font-family: "Fraunces", serif; font-weight: 300;
+    font-size: clamp(20px, 2.3vw, 29px); line-height: 1.28; color: var(--ink);
+    letter-spacing: -0.01em; max-width: 24ch;
   }
-  .telemetry .g { display: flex; align-items: center; gap: 8px; }
-  .telemetry .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 6px var(--accent);
-  }
-  .telemetry .dot.working { background: var(--warm); box-shadow: 0 0 6px var(--warm); animation: blink 0.7s ease-in-out infinite; }
-
-  .home-indicator {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    width: 118px; height: 4px; background: rgba(255,255,255,0.42); border-radius: 2px;
+  .assure-row .a-fig {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 13px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--green); white-space: nowrap;
   }
 
-  /* tiny hint chip */
-  .hint {
-    position: absolute;
-    left: -14px; top: 78px;
-    transform: translateX(-100%);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-mid);
-    white-space: nowrap;
-    transition: opacity 0.4s ease;
-    display: flex; align-items: center; gap: 10px;
+  /* installation steps */
+  .steps { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; }
+  .step .s-num {
+    font-family: "Fraunces", serif; font-style: italic; font-weight: 400;
+    font-size: 30px; color: var(--brass); margin-bottom: 18px;
   }
-  .hint .line {
-    width: 56px; height: 1px; background: var(--ink-faint);
+  .step .s-title {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--ink); margin-bottom: 14px;
   }
+  .step .s-body { font-size: 16px; line-height: 1.62; color: var(--ink-mid); }
 
-  /* Chrome fade during APPROACH — covers headline, phone, specs, hint */
-  .headline, .phone-wrap, .specs, .hint, .scroll-cue {
-    transition: opacity 0.5s ease;
+  /* vision pullquote */
+  .vision-body {
+    font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(24px, 3.1vw, 40px); line-height: 1.3;
+    letter-spacing: -0.012em; color: var(--ink); margin: 0;
+    max-width: 28ch;
   }
-  body.fade-chrome .headline,
-  body.fade-chrome .phone-wrap,
-  body.fade-chrome .specs,
-  body.fade-chrome .hint {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  /* Putting-mode prompt — co-located with scroll-cue, swaps in on AIM */
-  .putt-prompt {
-    position: absolute;
-    left: 50%; bottom: 40px;
-    transform: translateX(-50%);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--ink-mid);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s ease;
-    display: flex; align-items: center; gap: 14px;
-    white-space: nowrap;
-  }
-  .putt-prompt.show { opacity: 0.82; }
-  .putt-prompt .bar {
-    display: inline-block; width: 42px; height: 1px;
-    background: var(--accent); opacity: 0.6;
+  .vision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+  .vision-sub { font-size: 17px; line-height: 1.64; color: var(--ink-mid); margin: 0; }
+  .vision-sub + .vision-sub { margin-top: 22px; }
+  /* vision band — golden-hour landscape kept warm + light: a heavy warm-stone wash
+     (lighter over the bright headline side, heavier over the planted side) so the
+     dark editorial text stays crisp and the site stays "warm and light" everywhere
+     but the dark hero/footer. */
+  .band.vision-band {
+    background-color: var(--paper-2);
+    background-image:
+      linear-gradient(90deg, rgba(243,239,230,0.80) 0%, rgba(240,235,225,0.84) 52%, rgba(243,239,230,0.90) 100%),
+      url("assets/vision-golden.jpg");
+    background-size: cover, cover;
+    background-position: center, center 60%;
+    background-repeat: no-repeat;
   }
 
-  /* Result chip that appears near the hole after a made putt */
-  .result-chip {
-    position: absolute;
-    left: 50%; top: 38%;
-    transform: translate(-50%, -50%) scale(0.9);
-    font-family: "JetBrains Mono", monospace;
-    font-size: 13px; letter-spacing: 0.32em; text-transform: uppercase;
-    color: var(--accent);
-    background: rgba(10,10,11,0.72);
-    border: 1px solid rgba(201,255,74,0.45);
-    padding: 10px 18px;
-    border-radius: 4px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+  /* closing CTA — dusk landscape under a deep-green scrim (the photo is felt, not shouted) */
+  .closing {
+    position: relative;
+    background-color: var(--green-2);
+    background-image:
+      radial-gradient(135% 115% at 50% 46%, rgba(16,26,18,0.28) 0%, rgba(16,26,18,0) 58%),
+      linear-gradient(180deg, rgba(31,50,35,0.82) 0%, rgba(20,32,22,0.80) 44%, rgba(14,23,16,0.90) 100%),
+      url("assets/closing-dusk.jpg");
+    background-size: cover, cover, cover;
+    background-position: center, center, center 42%;
+    background-repeat: no-repeat;
+    color: var(--paper); text-align: center; padding: clamp(96px, 13vw, 180px) 0;
   }
-  .result-chip.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  .result-chip.miss { color: var(--warm); border-color: rgba(245,193,130,0.45); }
-
-  @media (max-width: 1400px) {
-    h1.hero { font-size: 72px; }
-    .headline { top: 110px; left: 48px; }
-    .specs { left: 48px; }
-    .phone-wrap { right: 48px; }
+  .closing .eyebrow { color: rgba(243,239,230,0.55); justify-content: center; }
+  .closing .eyebrow::before { background: var(--brass); }
+  .closing h2 {
+    font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(40px, 6vw, 84px); line-height: 1.0; letter-spacing: -0.02em;
+    margin: 0 0 26px; color: var(--paper);
   }
-  @media (max-width: 1280px) {
-    h1.hero { font-size: 60px; }
-    .phone { width: 280px; height: 576px; }
-    .phone-wrap { right: 32px; }
+  .closing h2 em { font-style: italic; color: #d8c9a6; }
+  .closing p { font-size: clamp(16px, 1.5vw, 19px); color: rgba(243,239,230,0.78); margin: 0 auto 14px; max-width: 46ch; }
+  .closing .price { color: rgba(243,239,230,0.55); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 40px; }
+  .closing .btn-primary { background: var(--paper); color: var(--green-2); border-color: var(--paper); }
+  .closing .btn-primary:hover { background: #fff; border-color: #fff; box-shadow: 0 14px 40px rgba(0,0,0,0.3); }
+
+  /* footer */
+  .foot {
+    background: var(--stage); color: var(--on-dark-dim);
+    padding: 38px 0;
   }
+  .foot .wrap { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  .foot .wordmark { font-family: "Fraunces", serif; font-weight: 500; font-size: 18px; color: var(--on-dark); text-decoration: none; }
+  .foot .wordmark .p { color: var(--on-dark-mid); }
+  .foot .f-meta { font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
 
-  /* Mobile CTA is hidden by default (desktop); shown inside the
-     mobile breakpoint below. */
-  .mobile-cta { display: none; }
+  /* engine DOM the Three.js module still queries — kept, never shown */
+  .engine-dom { position: absolute; left: -99999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
 
-  /* ------------- MOBILE ------------- */
-  /* Desktop uses wheel+pointer for the interactive putting. On mobile
-     we drop the scroll-driven interaction entirely and let the page
-     behave as a normal scrollable landing: 3D scene sits as the hero
-     visual at the top, the pitch flows under it, a big CTA anchors
-     the bottom. The 3D scene's idle auto-play demo still runs. */
-  @media (max-width: 768px) {
-    html, body {
-      overflow-x: hidden; overflow-y: auto;
-      height: auto; min-height: 100%;
-    }
-    body {
-      display: flex;
-      flex-direction: column;
-    }
-    .nav { order: 1; }
-    #stage { order: 2; }
-    .headline { order: 3; }
-    .mobile-cta { order: 4; }
-
-    .nav {
-      padding: 16px 20px;
-      gap: 10px;
-    }
-    .nav-left { gap: 10px; }
-    .wordmark { font-size: 12px; letter-spacing: 0.28em; }
-    .pill {
-      font-size: 9px; padding: 3px 8px; letter-spacing: 0.18em;
-    }
-    .nav-right { gap: 12px; }
-    .nav-right > a:not(.nav-cta) { display: none; }
-    .nav-cta {
-      padding: 10px 14px; font-size: 10px; letter-spacing: 0.18em;
-    }
-
-    /* 3D stage becomes a bounded hero visual (not fullscreen) */
-    #stage {
-      position: relative;
-      inset: auto;
-      height: 62vh;
-      width: 100%;
-    }
-
-    /* Headline flows naturally below the stage */
-    .headline {
-      position: relative;
-      top: auto; left: auto;
-      max-width: 100%;
-      padding: 32px 24px 8px;
-      pointer-events: auto;
-    }
-    .eyebrow { font-size: 10px; letter-spacing: 0.28em; }
-    .eyebrow-sub {
-      font-size: 10px; margin-left: 14px; margin-bottom: 18px;
-    }
-    h1.hero {
-      font-size: 44px; line-height: 1.0;
-      letter-spacing: -0.025em;
-      margin: 0 0 20px;
-    }
-    .sub {
-      font-size: 15px; line-height: 1.55; max-width: 100%;
-    }
-    .live-row { display: none; }
-
-    /* Mobile CTA block under the pitch */
-    .mobile-cta {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 8px 24px 48px;
-    }
-    .mobile-cta a.primary {
-      display: inline-block;
-      text-align: center;
-      padding: 16px 24px;
-      background: var(--accent); color: #0a0a0c;
-      border-radius: 999px;
-      font-family: "Inter Tight", sans-serif;
-      font-weight: 500; font-size: 13px; letter-spacing: 0.18em;
-      text-transform: uppercase;
-      text-decoration: none;
-    }
-    .mobile-cta .note {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--ink-dim); text-align: center;
-    }
-
-    /* Hide desktop-only interactive UI */
-    .phone-wrap,
-    .specs,
-    .scroll-cue,
-    .exit-hint,
-    .putt-prompt,
-    .result-chip,
-    .hint {
-      display: none !important;
-    }
-
-    #vignette { opacity: 0.6; }
-    #grain { opacity: 0.03; }
+  /* ===================== RESPONSIVE ===================== */
+  @media (max-width: 900px) {
+    .vision-grid { grid-template-columns: 1fr; gap: 30px; }
+    .steps { grid-template-columns: 1fr; gap: 36px; }
+    .cat-group { grid-template-columns: 1fr; gap: 10px; }
+  }
+  @media (max-width: 720px) {
+    .wrap, .hero-inner { padding: 0 22px; }
+    .nav, body.nav-solid .nav { padding: 16px 22px; }
+    .nav-tag.hide-sm { display: none; }
+    .band { padding: 76px 0; }
+    .assure-row { grid-template-columns: 1fr; gap: 8px; }
+    .hero-live .wrap { justify-content: flex-start; }
+    .scrolltip { display: none; }
+    h1.hero-title { max-width: 16ch; }
   }
 </style>
 </head>
@@ -628,112 +388,187 @@
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="nav-left">
-    <div class="wordmark"><a href="/"><span class="t">Terra</span><span class="p">Putt</span></a></div>
-    <div class="pill">Early concept</div>
-  </div>
+  <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
   <div class="nav-right">
-    <a href="follow.html" class="nav-cta">Share your take</a>
+    <span class="nav-tag hide-sm">Houston · By application</span>
+    <a class="nav-cta" href="follow.html">Request access</a>
   </div>
 </nav>
 
-<!-- HEADLINE -->
-<div class="headline">
-  <div class="eyebrow">TerraPutt · An early concept</div>
-  <div class="eyebrow-sub">Fully outdoor · App-driven</div>
-  <h1 class="hero">The ground,<br><em>on command.</em></h1>
-  <p class="sub">Your backyard, terraformed. An outdoor putting green you can reshape from your phone — any break, any slope, any hole. Practice the putt you watched Sunday, then flatten it for the kids on Monday. We're early, and we're building this in the open.</p>
-  <div class="live-row">
-    <span class="live-name"><span class="dot" id="liveDot"></span><span id="liveMetric">Level · Baseline</span></span>
-  </div>
-</div>
+<!-- HERO -->
+<header class="hero">
+  <div id="stage"><div id="canvas-host"></div></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
 
-<!-- STAGE -->
-<div id="stage">
-  <div id="canvas-host"></div>
-</div>
-
-<!-- Mobile-only CTA block (hidden on desktop via CSS default of display:none) -->
-<div class="mobile-cta">
-  <a href="follow.html" class="primary">Share your take</a>
-  <div class="note">Early concept · No spam · Unsubscribe any time</div>
-</div>
-
-<!-- PHONE -->
-<div class="phone-wrap">
-  <div class="hint" id="hint"><span class="line"></span>Tap a surface</div>
-  <div class="phone">
-    <div class="phone-screen">
-      <div class="status-bar">
-        <span>9:41</span>
-        <span class="icons">
-          <svg viewBox="0 0 16 10" fill="currentColor"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3.5" y="4" width="2" height="6" rx="0.5"/><rect x="7" y="2" width="2" height="8" rx="0.5"/><rect x="10.5" y="0" width="2" height="10" rx="0.5"/></svg>
-          <svg viewBox="0 0 16 11" fill="currentColor"><path d="M8 2.5 C5.5 2.5 3.5 3.3 2 4.6 L0.5 3 C2.5 1.2 5 0 8 0 C11 0 13.5 1.2 15.5 3 L14 4.6 C12.5 3.3 10.5 2.5 8 2.5 Z"/><circle cx="8" cy="9" r="1.3"/></svg>
-          <svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="1" width="20" height="10" rx="2"/><rect x="2" y="2.5" width="16" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="4" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
-        </span>
+  <div class="hero-overlay">
+    <div class="hero-inner">
+      <div class="eyebrow">TerraPutt — Houston, by application</div>
+      <h1 class="hero-title">The ground,<br><em>on command.</em></h1>
+      <p class="hero-sub"><strong>Most putting greens are static. Yours won't be.</strong> A connected outdoor surface that physically reshapes on command — any break, any topology, any hole. The first installations are by application.</p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="follow.html">Request early access <span class="ar"></span></a>
+        <span class="hero-meta">First installations · Houston</span>
       </div>
-
-      <div class="app">
-        <div class="app-header">
-          <div class="app-device">● Connected</div>
-          <div class="app-time">42°F · 11mph</div>
-        </div>
-        <div class="app-title">Surface</div>
-        <div class="app-sub">Select a topology</div>
-
-        <div class="topo-list" id="topoList"></div>
-
-        <div class="app-footer">
-          <div class="telemetry">
-            <div class="g"><div class="dot" id="telDot"></div><span id="telText">Idle</span></div>
-            <span>0.00 W</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="home-indicator"></div>
     </div>
   </div>
+
+  <div class="hero-live">
+    <div class="wrap">
+      <span class="live-name"><span class="dot" id="liveDot"></span><span id="liveMetric">Level · Baseline</span></span>
+      <span class="scrolltip">Read on<span class="v"></span></span>
+    </div>
+  </div>
+</header>
+
+<!-- WHAT IT DOES -->
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">What it does</div>
+      <h2 class="display">Choose a topology.<br>The surface <em>becomes it.</em></h2>
+      <p class="lede">Pick a break, a slope, or a specific hole. The green reshapes itself to match — then holds it, outdoors, until you choose the next one. <strong>No rebuild, no crew, no compromise.</strong> Every configuration you create is saved, and yours to return to before any session.</p>
+    </div>
+
+    <div class="catalog">
+      <div class="cat-group">
+        <div class="cat-label">Fundamentals</div>
+        <div class="cat-items">Flat<span>/</span>Uphill<span>/</span>Downhill<span>/</span>Sidehill Break</div>
+      </div>
+      <div class="cat-group">
+        <div class="cat-label">Features</div>
+        <div class="cat-items">Backstop<span>/</span>Center Bowl<span>/</span>Double Plateau</div>
+      </div>
+      <div class="cat-group">
+        <div class="cat-label">Signatures</div>
+        <div class="cat-items">Golden Bell<span>/</span>Pinehurst Crown</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ASSURANCES (specs reframed) -->
+<section class="band alt">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Built for outside</div>
+      <h2 class="display">Designed to be <em>left out.</em></h2>
+      <p class="lede">It lives in the yard the way the landscape does — through the season, through the weather, without being thought about.</p>
+    </div>
+
+    <div class="assure">
+      <div class="assure-row">
+        <div class="a-text">Sealed against weather and irrigation.</div>
+        <div class="a-fig">IP66</div>
+      </div>
+      <div class="assure-row">
+        <div class="a-text">Unbothered from a hard freeze to a Houston August.</div>
+        <div class="a-fig">−10 → 110°F</div>
+      </div>
+      <div class="assure-row">
+        <div class="a-text">Color that holds under years of direct sun.</div>
+        <div class="a-fig">5,000 hr UV</div>
+      </div>
+      <div class="assure-row">
+        <div class="a-text">Reshapes on command, in under ten seconds.</div>
+        <div class="a-fig">&lt; 10 s</div>
+      </div>
+      <div class="assure-row">
+        <div class="a-text">Every configuration saved, repeatable, and exact.</div>
+        <div class="a-fig">Unlimited profiles</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALLATION PATHWAY -->
+<section class="band">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">What an installation looks like</div>
+      <h2 class="display">A permanent installation —<br>not a product you <em>unbox.</em></h2>
+      <p class="lede">TerraPutt is built into the property and commissioned on site. Here is what that involves, end to end.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="s-num">01</div>
+        <div class="s-title">Assessment</div>
+        <div class="s-body">We visit and read the site — grade, drainage, sun, sightlines — and agree on a footprint, from a compact practice green to a full short-game surface.</div>
+      </div>
+      <div class="step">
+        <div class="s-num">02</div>
+        <div class="s-title">Design</div>
+        <div class="s-body">We design the green's resting form and the set of configurations you want on call, tuned to your game and to the architecture of the yard.</div>
+      </div>
+      <div class="step">
+        <div class="s-num">03</div>
+        <div class="s-title">Installation</div>
+        <div class="s-body">It's built in as permanent landscape and commissioned in place. Lead times are measured in months, not weeks — this is construction, not delivery.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VISION -->
+<section class="band alt vision-band">
+  <div class="wrap">
+    <div class="eyebrow">Why this exists</div>
+    <div class="vision-grid">
+      <h2 class="vision-body serif">A green that changes its mind — and a category that follows.</h2>
+      <div>
+        <p class="vision-sub">Every other serious system in a home — light, climate, sound, water — became something you could shape on command. The ground never did. It stayed poured, planted, and fixed.</p>
+        <p class="vision-sub">TerraPutt is the first step past that: an outdoor surface that reconfigures on demand. A putting green now, a wider language of responsive landscape after it. We're building the first ones by hand, for a small number of homes, in Houston.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING CTA -->
+<section class="closing">
+  <div class="wrap">
+    <div class="eyebrow">Early access</div>
+    <h2>Request <em>early access.</em></h2>
+    <p>The first installations are by application — Houston area. Tell us about your home and your game, and we'll be in touch personally.</p>
+    <p class="price">Investment-grade installations · Pricing on application</p>
+    <a class="btn-primary" href="follow.html">Request early access <span class="ar"></span></a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="foot">
+  <div class="wrap">
+    <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
+    <span class="f-meta">Houston · By application · © TerraPutt</span>
+  </div>
+</footer>
+
+<!-- Engine DOM the Three.js module still references. Kept off-screen,
+     never displayed; drives nothing the visitor sees except the hero. -->
+<div class="engine-dom" aria-hidden="true">
+  <div class="phone-wrap">
+    <div class="hint" id="hint"></div>
+    <div class="topo-list" id="topoList"></div>
+    <div class="telemetry"><span id="telText">Idle</span><span class="dot" id="telDot"></span></div>
+  </div>
+  <div class="scroll-cue"><span id="scrollCueText"></span></div>
+  <div class="exit-hint"></div>
+  <div class="putt-prompt" id="puttPrompt"><span id="puttPromptText"></span></div>
+  <div class="result-chip" id="resultChip">IN</div>
 </div>
 
-<!-- SPECS (bottom left) -->
-<div class="specs">
-  <div class="spec"><span class="k">Profiles</span><span class="v">Unlimited</span></div>
-  <div class="spec"><span class="k">Reconfigure</span><span class="v">&lt; 10<em>sec</em></span></div>
-  <div class="spec"><span class="k">All-Weather</span><span class="v">IP66</span></div>
-  <div class="spec"><span class="k">Op Temp</span><span class="v">−10 → 110<em>°F</em></span></div>
-  <div class="spec"><span class="k">UV-Rated</span><span class="v">5,000<em>hr</em></span></div>
-</div>
-
-<div class="scroll-cue">
-  <svg class="cue-chev" viewBox="0 0 12 8" aria-hidden="true">
-    <path d="M1 1.5 L6 6 L11 1.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
-  </svg>
-  <span id="scrollCueText">Scroll to begin</span>
-  <span class="bar"></span>
-</div>
-
-<!-- "Scroll up to exit" secondary cue — shown during APPROACH and AIM -->
-<div class="exit-hint">
-  <svg class="cue-chev up" viewBox="0 0 12 8" aria-hidden="true">
-    <path d="M1 6.5 L6 2 L11 6.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
-  </svg>
-  <span>Scroll up to exit</span>
-</div>
-
-<!-- Shown only during AIM/SWING -->
-<div class="putt-prompt" id="puttPrompt">
-  <span class="bar"></span>
-  <span id="puttPromptText">Move mouse to aim · Scroll to swing</span>
-  <span class="bar"></span>
-</div>
-
-<!-- Result chip (IN / MISSED) -->
-<div class="result-chip" id="resultChip">IN</div>
-
-<div id="vignette"></div>
-<div id="grain"></div>
-
+<!-- Nav goes solid once the hero scrolls away -->
+<script>
+  (function () {
+    var b = document.body;
+    function onScroll() {
+      var past = window.scrollY > (window.innerHeight * 0.72);
+      b.classList.toggle('nav-solid', past);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module">
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
@@ -1074,7 +909,7 @@ function updateTopoGrid(fn, intensity, gridOpacity) {
 function init() {
   scene = new THREE.Scene();
   scene.background = null;
-  scene.fog = new THREE.Fog(0x0a0a0c, 20, 55);
+  scene.fog = new THREE.Fog(0x14100c, 20, 55);   // warm dusk haze, not cold black
 
   const host = document.getElementById('canvas-host');
   const w = host.clientWidth, h = host.clientHeight;
@@ -1089,7 +924,7 @@ function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.15;   // a touch richer for the dusk grade
   host.appendChild(renderer.domElement);
 
   /* ---------- Studio floor — a large warm-gray plane
@@ -1099,7 +934,7 @@ function init() {
        catches direct light and was competing with the headline. ---------- */
   const floorGeom = new THREE.PlaneGeometry(120, 120, 1, 1);
   const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x0b0b0d, roughness: 0.98, metalness: 0.0
+    color: 0x161009, roughness: 0.98, metalness: 0.0   // warm earth/stone ground, reads as dusk soil not void
   });
   groundFloor = new THREE.Mesh(floorGeom, floorMat);
   groundFloor.rotation.x = -Math.PI / 2;
@@ -1725,7 +1560,7 @@ function init() {
   aimGeom.setAttribute('position',
     new THREE.BufferAttribute(new Float32Array(AIM_SAMPLES * 3), 3));
   const aimMat = new THREE.LineBasicMaterial({
-    color: 0xc9ff4a, transparent: true, opacity: 0,
+    color: 0x9a7b46, transparent: true, opacity: 0,
     depthTest: false, depthWrite: false
   });
   window.__aimLine = new THREE.Line(aimGeom, aimMat);
@@ -1798,7 +1633,7 @@ function init() {
       const rMax = R_BASE * edgeShape(theta) * 0.84;
       if (rxz > rMax) continue;
       const m = new THREE.MeshBasicMaterial({
-        color: 0xc9ff4a, transparent: true, opacity: 0, depthWrite: false
+        color: 0x9a7b46, transparent: true, opacity: 0, depthWrite: false
       });
       const d = new THREE.Mesh(dotGeom, m);
       d.position.set(dx, 0.02, dz);
@@ -1850,8 +1685,8 @@ function init() {
 
   // Ambient/hemi dropped — these were the main culprits lifting the
   // shadow side into a middle-grey and washing out topology relief.
-  scene.add(new THREE.AmbientLight(0x2c2e36, 0.18));
-  scene.add(new THREE.HemisphereLight(0x4a6284, 0x080808, 0.12));
+  scene.add(new THREE.AmbientLight(0x342a22, 0.18));               // warm dusk bounce
+  scene.add(new THREE.HemisphereLight(0x4a6284, 0x140e08, 0.14));  // cool sky over warm ground
 
   window.addEventListener('resize', onResize);
 
@@ -2789,97 +2624,28 @@ function onPointerMove(e) {
   aimYawTarget = pointerX * MAX_AIM;
 }
 
-window.addEventListener('wheel', onWheel, { passive: false });
-window.addEventListener('pointermove', onPointerMove);
+/* Putting mini-game retired for the editorial rev: the page scrolls
+   natively and the surface auto-loops as the motion asset. onWheel /
+   onPointerMove stay defined but unbound so nothing hijacks scroll. */
 
 /* =================================================================
-   First-load idle demo — plays once, then replays a cycle every
-   ~45s of idle so the product keeps demonstrating itself while the
-   visitor lingers. Any user click resets the idle timer.
-   Only runs while gameState === S_HERO.
+   Looping reshape demo — the motion asset.
+   With the interactive putting flow gone, this is the whole point of
+   the scene: cycle the surface through the library on every viewport,
+   holding each shape long enough to read before the next reconfigure.
+   It makes the differentiator — the ground physically changing —
+   legible with no input required. gameState stays S_HERO throughout.
    ================================================================= */
-let demoDone = false;
-let userHasInteracted = false;
-let lastInteractionTime = performance.now() / 1000;
-
-function markInteraction() {
-  userHasInteracted = true;
-  lastInteractionTime = performance.now() / 1000;
-  hint.style.opacity = 0;
+const DEMO_CYCLE = ['backstop', 'goldenbell', 'sidehill', 'bowl', 'plateau', 'pinehurst', 'uphill', 'downhill', 'flat'];
+let demoIdx = 0;
+function stepDemo() {
+  if (transStart >= 0) return;          // never interrupt a reconfigure in flight
+  const pick = DEMO_CYCLE[demoIdx % DEMO_CYCLE.length];
+  demoIdx++;
+  selectTopology(pick, false);
 }
-// Wrap click path to track interactions without modifying selectTopology
-document.querySelectorAll('.topo-row').forEach(r => r.addEventListener('click', markInteraction));
-
-setTimeout(() => {
-  if (demoDone) return;
-  if (gameState !== S_HERO) return;
-  selectTopology('backstop', false);
-}, 2200);
-setTimeout(() => {
-  if (demoDone) return;
-  if (gameState !== S_HERO) return;
-  selectTopology('flat', false);
-  demoDone = true;
-}, 7200);
-
-/* Pulse the hint softly after the demo — ONLY if the user never
-   clicked. Once they do, markInteraction() pins it at 0 forever. */
-setTimeout(() => {
-  if (!userHasInteracted && gameState === S_HERO) hint.style.opacity = 0.55;
-}, 9000);
-
-/* Idle re-engage loop — cycles through interesting topologies so a
-   stalled visitor keeps seeing the product move. Hero-only. */
-const IDLE_CYCLE = ['goldenbell', 'bowl', 'sidehill', 'plateau', 'pinehurst', 'uphill', 'backstop', 'downhill'];
-let idleIdx = 0;
-setInterval(() => {
-  if (gameState !== S_HERO) return;
-  if (!demoDone) return;
-  if (transStart >= 0) return;
-  const now = performance.now() / 1000;
-  if (now - lastInteractionTime < 45) return;
-  if (activeId === 'flat') {
-    const pick = IDLE_CYCLE[idleIdx % IDLE_CYCLE.length];
-    idleIdx++;
-    selectTopology(pick, false);
-  } else {
-    selectTopology('flat', false);
-  }
-  lastInteractionTime = performance.now() / 1000;
-}, 5000);
-
-/* =================================================================
-   Mobile auto-cycle — on touch/narrow viewports, the user can't drive
-   the interactive putting flow, so we continuously cycle through the
-   topology library every 3s to keep the reshape-on-demand value prop
-   visible. Bypasses the 45s idle gate used on desktop.
-   ================================================================= */
-const mobileMQ = window.matchMedia('(max-width: 768px)');
-const MOBILE_CYCLE = ['backstop', 'goldenbell', 'bowl', 'sidehill', 'plateau', 'pinehurst', 'uphill', 'downhill'];
-let mobileIdx = 0;
-let mobileTimer = null;
-
-function startMobileCycle() {
-  if (mobileTimer) return;
-  mobileTimer = setInterval(() => {
-    if (gameState !== S_HERO) return;
-    if (transStart >= 0) return;
-    const pick = MOBILE_CYCLE[mobileIdx % MOBILE_CYCLE.length];
-    mobileIdx++;
-    selectTopology(pick, false);
-  }, 3000);
-}
-function stopMobileCycle() {
-  if (!mobileTimer) return;
-  clearInterval(mobileTimer);
-  mobileTimer = null;
-}
-
-if (mobileMQ.matches) startMobileCycle();
-mobileMQ.addEventListener('change', (e) => {
-  if (e.matches) startMobileCycle();
-  else stopMobileCycle();
-});
+setTimeout(stepDemo, 2200);             // first reshape shortly after load
+setInterval(stepDemo, 4000);            // then hold ~4s between shapes
 </script>
 </body>
 </html>
