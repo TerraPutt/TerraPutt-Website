@@ -661,8 +661,8 @@
    five-phase reconfigure, the environment, and a quiet camera.
    ================================================================= */
 const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-// Phones and low-core devices get a lighter scene: fewer blades, a coarser
-// mesh, a smaller shadow map, a capped pixel ratio and a slower loop.
+// Phones and low-core devices get a lighter scene: a coarser mesh, a smaller
+// shadow map, a capped pixel ratio and a slower loop.
 const LOW_POWER = Math.min(window.innerWidth, window.innerHeight) < 768
   || (navigator.hardwareConcurrency || 8) < 4
   || (navigator.deviceMemory !== undefined && navigator.deviceMemory < 4);
@@ -852,11 +852,11 @@ function init() {
   const bumpArr = new Float32Array(pos.count); // baked bump per-vertex
   const stripeArr = new Float32Array(pos.count);
 
-  const cMowLight = new THREE.Color(0x4a9b52); // cool emerald — sunlit band
-  const cMowDark  = new THREE.Color(0x1f5a2c); // deep green — shadow band (no olive)
-  const cCollar   = new THREE.Color(0x2d4e22); // collar: a touch warmer than putting surface
-  const cCollarDk = new THREE.Color(0x1a2f16); // shadow side of collar
-  const cFringe   = new THREE.Color(0x0a1408); // fringe stays dark/neutral
+  const cMowLight = new THREE.Color(0x2f6631); // bent-grass green, lit band
+  const cMowDark  = new THREE.Color(0x1f4526); // shadow band
+  const cCollar   = new THREE.Color(0x3b5a2c); // collar: longer grass, a little yellower
+  const cCollarDk = new THREE.Color(0x2a4222);
+  const cFringe   = new THREE.Color(0x1c2818); // fringe: dark turf, never black
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -878,16 +878,16 @@ function init() {
     // With blade lean now driving the stripe effect via geometry,
     // the base mesh only needs a gentle tonal variation to avoid
     // showing a solid color between blades.
-    const stripe = 0.5 + 0.18 * Math.sin(stripePhase);
+    const stripe = 0.5 + 0.09 * Math.sin(stripePhase);
     stripeArr[i] = stripe;
     let base = cMowLight.clone().lerp(cMowDark, stripe);
 
     // Painterly multi-octave jitter — breaks the flat-plane look and
     // restores the broken-color depth of the earlier version. Three
     // octaves so no single frequency dominates.
-    const j1 = (hash2(Math.round(x*10), Math.round(y*10)) - 0.5) * 0.095;
-    const j2 = (hash2(Math.round(x*26), Math.round(y*26)) - 0.5) * 0.055;
-    const j3 = (hash2(Math.round(x*52), Math.round(y*52)) - 0.5) * 0.032;
+    const j1 = (hash2(Math.round(x*6),  Math.round(y*6))  - 0.5) * 0.030;
+    const j2 = (hash2(Math.round(x*26), Math.round(y*26)) - 0.5) * 0.028;
+    const j3 = (hash2(Math.round(x*52), Math.round(y*52)) - 0.5) * 0.022;
     const j = j1 + j2 + j3;
     base.r = Math.max(0, Math.min(1, base.r + j * 0.50));
     base.g = Math.max(0, Math.min(1, base.g + j * 0.78));
@@ -895,10 +895,10 @@ function init() {
 
     // Subtle lighter/darker clumps — where the mower left wheel marks
     const clump = hash2(Math.round(x*4.5)*7, Math.round(y*4.5)*3);
-    if (clump > 0.93) {
-      base.r += 0.04; base.g += 0.055; base.b += 0.025;
-    } else if (clump < 0.07) {
-      base.r -= 0.025; base.g -= 0.042; base.b -= 0.022;
+    if (clump > 0.975) {
+      base.r += 0.018; base.g += 0.026; base.b += 0.012;
+    } else if (clump < 0.025) {
+      base.r -= 0.012; base.g -= 0.020; base.b -= 0.010;
     }
 
     // Sun-side brightening — luminance-only, NO hue shift toward
@@ -910,7 +910,7 @@ function init() {
     // normalized horizontal light direction of (-0.76, 0.65) in local XY.
     const sunDot = (-x * 0.76 + y * 0.65) / R_BASE; // -1..1-ish
     const sunT = Math.max(0, Math.min(1, 0.5 + sunDot * 0.55));
-    const sunLift = sunT * 0.045;
+    const sunLift = sunT * 0.03;
     base.r = Math.min(1, base.r + sunLift * 0.6);
     base.g = Math.min(1, base.g + sunLift * 1.0);
     base.b = Math.min(1, base.b + sunLift * 0.6);
@@ -1011,16 +1011,19 @@ function init() {
   // a visible glossy highlight band on the near/far rims that washed
   // out the blades. Lambert is pure diffuse; turf is effectively
   // Lambertian at this scale anyway.
-  const mat = new THREE.MeshLambertMaterial({
+  // Phong with zero specular: the same Lambertian diffuse, but lit per fragment,
+  // so the fine normal map actually perturbs the shading and the stripe / sheen
+  // hook below has a real surface normal to work with.
+  const mat = new THREE.MeshPhongMaterial({
     vertexColors: true,
-    emissive: 0x000000,
-    emissiveIntensity: 0
+    specular: 0x000000,
+    shininess: 4
   });
   // Lambert doesn't use roughnessMap; grassRoughTex is unused here.
   // Normal map still works on Lambert for micro-variation without
   // introducing specular reflection.
   mat.normalMap = grassNormalTex;
-  mat.normalScale = new THREE.Vector2(0.35, 0.35);
+  mat.normalScale = new THREE.Vector2(0.55, 0.55);
 
   // The anisotropic onBeforeCompile hook targeted StandardMaterial's
   // shader chunks (<dithering_fragment>). Lambert has the same chunk
@@ -1031,9 +1034,8 @@ function init() {
     shader.uniforms.uKeyColor = { value: new THREE.Color(0xfff4d8) }; // neutral warm white — no yellow bias
     shader.uniforms.uStripeDir = { value: new THREE.Vector3(0.85, 0, 0.22).normalize() };
     shader.uniforms.uStripePeriod = { value: 2.4 };
-    shader.uniforms.uAniso = { value: 0.85 }; // alphaX
-    shader.uniforms.uAnisoPerp = { value: 0.18 }; // alphaY
-    shader.uniforms.uGlintGain = { value: 0.0 };
+    shader.uniforms.uStripeGain = { value: 0.085 };
+    shader.uniforms.uSheenGain = { value: 0.07 };
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -1056,43 +1058,45 @@ function init() {
        uniform vec3 uKeyColor;
        uniform vec3 uStripeDir;
        uniform float uStripePeriod;
-       uniform float uAniso;
-       uniform float uAnisoPerp;
-       uniform float uGlintGain;`
+       uniform float uStripeGain;
+       uniform float uSheenGain;`
     ).replace(
       '#include <dithering_fragment>',
       `
-       // ---- Anisotropic Ward-style specular ----
-       vec3 Nw = normalize(vWorldNormalAniso);
+       // ---- Mowing stripes as shading, not paint ----
+       // Bands of blades lean alternately along the mow axis. Blades leaning
+       // away from the viewer show their lit sides and read lighter; leaning
+       // toward the viewer they read darker. So the stripe contrast depends on
+       // where the camera is, which is what makes real stripes look real.
+       vec3 Nw = normalize(inverseTransformDirection(normal, viewMatrix));
        vec3 Vw = normalize(cameraPosition - vWorldPosAniso);
        vec3 Lw = normalize(uKeyDir);
+       float lx = vWorldPosAniso.x;
+       float ly = -vWorldPosAniso.z;   // the turf's local y is world -z
+       float wob = (sin(ly * 0.9) * 0.35 + sin(ly * 2.3 + 1.1) * 0.18 + sin(lx * 0.6 + 2.7) * 0.22) * 0.12;
+       float phase = (lx * 0.85 + ly * 0.22) * uStripePeriod + wob;
+       float lean = clamp(sin(phase) * 7.0, -1.0, 1.0);          // crisp band edges, a mower's width apart
+       vec3 Vt = Vw - Nw * dot(Nw, Vw);
+       float vLen = clamp(length(Vt) * 1.4, 0.0, 1.0);
+       vec3 Vn = normalize(Vt + vec3(1e-4));
+       vec3 mowT = normalize(uStripeDir - Nw * dot(Nw, uStripeDir));
+       float vAlong = dot(Vn, mowT) * vLen;
+       // second, perpendicular cut — the double-cut checker of a tournament green
+       vec3 mowT2 = normalize(cross(Nw, mowT));
+       float phase2 = (ly * 0.85 - lx * 0.22) * uStripePeriod * 0.92 + 0.7;
+       float lean2 = clamp(sin(phase2) * 7.0, -1.0, 1.0);
+       float vAlong2 = dot(Vn, mowT2) * vLen;
+       float stripeShade = 1.0 - uStripeGain * lean * vAlong - uStripeGain * 0.35 * lean2 * vAlong2;
+       gl_FragColor.rgb *= stripeShade;
+
+       // ---- Backlit sheen ----
+       // Low, broad lobe from the key light; bent grass at dusk has a velvet
+       // sheen where the light grazes. Leaning-away bands catch a little more.
        vec3 Hw = normalize(Lw + Vw);
-
-       // Stripe band sign — which way blades lean on this band.
-       // Stripe coord: same phase formula as CPU-side mowing stripes
-       float stripeCoord = (vWorldPosAniso.x * 0.85 + vWorldPosAniso.z * 0.22) * uStripePeriod;
-       float stripeSign = sign(sin(stripeCoord));
-
-       // Tangent on the surface along stripe direction, flipped per-band
-       vec3 T = normalize(uStripeDir - Nw * dot(Nw, uStripeDir)) * stripeSign;
-       vec3 B = normalize(cross(Nw, T));
-
        float NdotL = max(dot(Nw, Lw), 0.0);
-       float NdotH = max(dot(Nw, Hw), 0.0);
-       float NdotV = max(dot(Nw, Vw), 0.0);
-       float HdotT = dot(Hw, T);
-       float HdotB = dot(Hw, B);
-
-       float exponent = -( (HdotT*HdotT)/(uAniso*uAniso) + (HdotB*HdotB)/(uAnisoPerp*uAnisoPerp) ) / max(NdotH*NdotH, 0.001);
-       float wardDenom = 4.0 * 3.14159 * uAniso * uAnisoPerp * sqrt(max(NdotL * NdotV, 0.001));
-       float ward = exp(exponent) / wardDenom;
-
-       // Blade-density hash — turf isn't a mirror; glints are sparse.
-       float blade = fract(sin(dot(vWorldPosAniso.xz * 97.0, vec2(12.9898, 78.233))) * 43758.5);
-       float sparkle = smoothstep(0.55, 1.0, blade);
-
-       vec3 anisoSpec = uKeyColor * ward * NdotL * uGlintGain * (0.25 + 0.75 * sparkle);
-       gl_FragColor.rgb += anisoSpec;
+       float sheen = pow(max(dot(Nw, Hw), 0.0), 40.0) * NdotL;
+       sheen *= 0.75 + 0.25 * (1.0 - lean * vAlong);
+       gl_FragColor.rgb += uKeyColor * sheen * uSheenGain;
 
        #include <dithering_fragment>`
     );
@@ -1105,221 +1109,34 @@ function init() {
   green.castShadow = true;
   scene.add(green);
 
-  /* ---------- Instanced blade geometry — real 3D grass ----------
-     ~24k small blade instances scattered across the green's footprint.
-     Each blade is a 3-tri tapered strip standing in world +Y. Per-
-     instance: position on turf, slight rotation, height/width jitter,
-     color tinted by the mowing-stripe phase it sits in. Shells and
-     painted stripes are gone — the green's visible texture is now
-     produced by the blade silhouettes themselves. */
-  {
-    // -- Blade geometry: a 3-segment tapered strip, 6 verts / 4 tris
-    //    v4 _ v5    (tip, narrow)
-    //     | /|
-    //    v2|_v3    (mid)
-    //     |/ |
-    //    v0|_v1    (base, wide)
-    // Using a thin ribbon; seen edge-on it's a line, head-on a blade.
-    const bladeGeom = new THREE.BufferGeometry();
-    const H = 1.0; // unit height — scaled per-instance
-    const bladeVerts = new Float32Array([
-      -0.50,  0.00, 0,   // v0 base L
-       0.50,  0.00, 0,   // v1 base R
-      -0.42,  0.50, 0,   // v2 mid L
-       0.42,  0.50, 0,   // v3 mid R
-      -0.12,  0.90, 0,   // v4 upper L
-       0.12,  0.90, 0,   // v5 upper R
-       0.00,  1.00, 0,   // v6 tip
-    ]);
-    const bladeIdx = new Uint16Array([
-      0,1,2,  1,3,2,
-      2,3,4,  3,5,4,
-      4,5,6,
-    ]);
-    const bladeUV = new Float32Array([
-      0,0, 1,0,  0,0.5, 1,0.5,  0,0.9, 1,0.9,  0.5,1
-    ]);
-    bladeGeom.setAttribute('position', new THREE.BufferAttribute(bladeVerts, 3));
-    bladeGeom.setAttribute('uv', new THREE.BufferAttribute(bladeUV, 2));
-    bladeGeom.setIndex(new THREE.BufferAttribute(bladeIdx, 1));
-    bladeGeom.computeVertexNormals();
-
-    const BLADE_COUNT = LOW_POWER ? 70000 : 240000;
-    const bladeInst = new THREE.InstancedMesh(
-      bladeGeom,
-      (() => {
-        const m = new THREE.MeshStandardMaterial({
-          vertexColors: false,
-          color: 0xffffff,      // modulated by instanceColor
-          roughness: 0.78,
-          metalness: 0.0,
-          side: THREE.DoubleSide,
-          transparent: false,
-          flatShading: false,
-        });
-        // Inject per-instance tint via onBeforeCompile → use built-in
-        // instanceColor — three.js handles the attribute automatically
-        // when we call setColorAt. So no custom shader needed.
-        return m;
-      })(),
-      BLADE_COUNT
-    );
-    bladeInst.castShadow = false;
-    bladeInst.receiveShadow = false; // was true — caused a crescent-shaped "cutoff" as shadow map resolution lost tiny blades in shadow
-    bladeInst.frustumCulled = false;
-
-    // Allocate per-blade records so we can update positions on topology
-    // changes without rebuilding random jitter each time.
-    const bladeRecords = new Array(BLADE_COUNT);
-
-    // Sample stripe + base color consistent with the mesh's baked colors
-    function sampleBladeColor(localX, localY) {
-      // same formulas as mesh coloring block above
-      const wobble = Math.sin(localY * 0.9) * 0.35 + Math.sin(localY * 2.3 + 1.1) * 0.18 + Math.sin(localX * 0.6 + 2.7) * 0.22;
-      const stripePhase = (localX * 0.85 + localY * 0.22) * 2.4 + wobble;
-      // Soft smooth tint only — the visible stripe comes from blade
-      // LEAN (geometry), not from painted bands. High-contrast band
-      // color is what created the woven-mat look; kill it.
-      const stripe = 0.5 + 0.18 * Math.sin(stripePhase);
-      const base = cMowLight.clone().lerp(cMowDark, stripe);
-      // multi-octave jitter to break uniformity
-      const j1 = (hash2(Math.round(localX*10), Math.round(localY*10)) - 0.5) * 0.095;
-      const j2 = (hash2(Math.round(localX*26), Math.round(localY*26)) - 0.5) * 0.055;
-      const j = j1 + j2;
-      base.r = Math.max(0, Math.min(1, base.r + j * 0.5));
-      base.g = Math.max(0, Math.min(1, base.g + j * 0.78));
-      base.b = Math.max(0, Math.min(1, base.b + j * 0.36));
-      // Luminance-only sun lift — no warm yellow tint (looked diseased)
-      const sunDot = (-localX * 0.76 + localY * 0.65) / R_BASE;
-      const sunT = Math.max(0, Math.min(1, 0.5 + sunDot * 0.55));
-      const sunLift = sunT * 0.045;
-      base.r = Math.min(1, base.r + sunLift * 0.6);
-      base.g = Math.min(1, base.g + sunLift * 1.0);
-      base.b = Math.min(1, base.b + sunLift * 0.6);
-      return base;
-    }
-
-    const dummy = new THREE.Object3D();
-    const tmpColor = new THREE.Color();
-    let bi = 0;
-    let attempts = 0;
-    // Bounding box must cover the MAX of edgeShape(theta). The stretch
-    // term (0.42 * sin^2) pushes the edge to ~1.42 along local ±Y, so
-    // sampling at 1.05 left a crescent-shaped zone near front/back of
-    // the green where the mesh existed but no blades were seeded —
-    // visible as a hard cutoff at the bottom-left edge.
-    const SAMPLE_EDGE = 1.5;
-    while (bi < BLADE_COUNT && attempts < BLADE_COUNT * 10) {
-      attempts++;
-      const lx = (Math.random() - 0.5) * 2 * R_BASE * SAMPLE_EDGE;
-      const ly = (Math.random() - 0.5) * 2 * R_BASE * SAMPLE_EDGE;
-      const r = Math.sqrt(lx*lx + ly*ly);
-      const theta = Math.atan2(ly, lx);
-      const R = R_BASE * edgeShape(theta);
-      if (r >= R * 0.98) continue; // stay inside edge
-      // Thin blades out in the collar band; no blades past fringe
-      const rn = r / R;
-      if (rn > 0.93 && Math.random() < (rn - 0.93) * 10) continue;
-
-      // world position: local (lx, ly) → world (lx, 0, ly) because
-      // the plane rotation sends local +Y → world -Z... wait, let me
-      // verify: rotation -PI/2 on X: new_y = old_z; new_z = -old_y.
-      // For plane points (x, y, 0): world = (x, 0, -y). So for a
-      // "local y" we should use world z = -y. Use that.
-      const wx = lx;
-      const wz = -ly;
-      // baked bump height at this point (raw turf noise, before topology)
-      const bh = turfBump(lx, ly);
-      // world y: base green offset + bump
-      const wy = 0.015 + bh;
-
-      // Per-blade params — trimmed to tournament-green length.
-      // Real championship putting surfaces cut around 3mm; at render
-      // scale 0.8–1.8cm reads as "manicured, not rough."
-      const heightM = 0.008 + Math.random() * 0.010;    // 0.8-1.8cm
-      const widthM  = 0.0022 + Math.random() * 0.0022;  // 2.2-4.4mm
-
-      // --- Mower-stripe lean: this is what makes real stripes. ---
-      // Blades in adjacent stripe bands lean in OPPOSITE directions
-      // along the mow axis. Seen edge-on one band shows broadside
-      // (more leaf area → looks dark) and the other shows tip
-      // (less area → looks light). That's the whole effect.
-      // Stripe direction is (0.85, 0.22) in local — mow axis is the
-      // same. Use the stripe sign to pick lean direction.
-      const wobbleS = Math.sin(ly * 0.9) * 0.35 + Math.sin(ly * 2.3 + 1.1) * 0.18 + Math.sin(lx * 0.6 + 2.7) * 0.22;
-      const stripeP = (lx * 0.85 + ly * 0.22) * 2.4 + wobbleS;
-      const stripeSign = Math.sin(stripeP) >= 0 ? 1 : -1;
-
-      // Mow axis angle (local space): atan2(0.22, 0.85) ≈ 0.253 rad.
-      // Want blade to face perpendicular to mow axis (so yaw aligns
-      // the blade's broad face along the mow direction), then tilt
-      // forward/back along the mow axis by the stripe sign.
-      const MOW_ANGLE = Math.atan2(0.22, 0.85); // ~14.5°
-      // Base yaw: 50% locked to mow axis ±small jitter (so stripes
-      // read), 50% fully random (so the green doesn't look like a
-      // venetian blind from any angle). Mixing the two populations
-      // is what keeps natural turf from looking like a flipbook.
-      const yawLock = Math.random() < 0.5;
-      const rotY = yawLock
-        ? MOW_ANGLE + Math.PI/2 + (Math.random() - 0.5) * 0.8
-        : Math.random() * Math.PI * 2;
-      // Lean angle (tilt around the blade's local X after yaw): push
-      // the tip along the mow axis. Strong-ish for hero read; jitter
-      // per-blade keeps it organic.
-      const leanBase = 0.45 + Math.random() * 0.25; // 26–40° lean
-      const tilt = stripeSign * leanBase;
-
-      dummy.position.set(wx, wy, wz);
-      dummy.rotation.set(tilt, rotY, 0);
-      dummy.scale.set(widthM, heightM, widthM);
-      dummy.updateMatrix();
-      bladeInst.setMatrixAt(bi, dummy.matrix);
-
-      // Per-blade tint (lerp to tip brightness on the upper half —
-      // handled by adjusting the per-vertex normal map not available
-      // here; instead just slightly brighten the whole blade tip via
-      // overall color shift)
-      const col = sampleBladeColor(lx, ly);
-      // random brightness variation between neighboring blades
-      const bv = 0.88 + Math.random() * 0.24;
-      tmpColor.setRGB(col.r * bv, col.g * bv, col.b * bv);
-      bladeInst.setColorAt(bi, tmpColor);
-
-      bladeRecords[bi] = { lx, ly, wx, wz, bh, heightM, widthM, rotY, tilt };
-      bi++;
-    }
-    // If we didn't fill (unlikely) zero out the rest
-    for (let k = bi; k < BLADE_COUNT; k++) {
-      dummy.scale.set(0, 0, 0);
-      dummy.position.set(0, -100, 0);
-      dummy.updateMatrix();
-      bladeInst.setMatrixAt(k, dummy.matrix);
-      tmpColor.setRGB(0, 0, 0);
-      bladeInst.setColorAt(k, tmpColor);
-    }
-    bladeInst.instanceMatrix.needsUpdate = true;
-    if (bladeInst.instanceColor) bladeInst.instanceColor.needsUpdate = true;
-    scene.add(bladeInst);
-
-    // Stash for reconfigure updates
-    window.__blades = { mesh: bladeInst, records: bladeRecords, count: bi, dummy: new THREE.Object3D() };
-  }
+  /* No blade instancing: at this distance a mown surface shows no individual blades;
+     the stripe shading, sheen and fine normal grain carry the turf texture. */
 
   /* ---------- Hole + rim ---------- */
   holePosVec = new THREE.Vector3(0, 0, -2.6);
+  // The cut edge: a thin dark ring of soil where the turf stops
   holeRim = new THREE.Mesh(
-    new THREE.RingGeometry(0.095, 0.135, 40),
-    new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 1.0 })
+    new THREE.RingGeometry(0.108, 0.128, 48),
+    new THREE.MeshStandardMaterial({ color: 0x1a150f, roughness: 1.0 })
   );
   holeRim.rotation.x = -Math.PI / 2;
   holeRim.position.set(holePosVec.x, 0.019, holePosVec.z);
   scene.add(holeRim);
-  // hole inner
-  holeInner = new THREE.Mesh(
-    new THREE.CircleGeometry(0.095, 32),
-    new THREE.MeshBasicMaterial({ color: 0x000000 })
+  // The cup: a white liner sunk below the surface, with a dark floor. Both ride the turf with holeRim.
+  holeInner = new THREE.Group();
+  const liner = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.108, 0.108, 0.11, 40, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xe4ded0, roughness: 0.55, side: THREE.BackSide })
   );
-  holeInner.rotation.x = -Math.PI / 2;
+  liner.position.y = -0.055;
+  holeInner.add(liner);
+  const cupFloor = new THREE.Mesh(
+    new THREE.CircleGeometry(0.108, 40),
+    new THREE.MeshStandardMaterial({ color: 0x0a0906, roughness: 1.0 })
+  );
+  cupFloor.rotation.x = -Math.PI / 2;
+  cupFloor.position.y = -0.108;
+  holeInner.add(cupFloor);
   holeInner.position.set(holePosVec.x, 0.018, holePosVec.z);
   scene.add(holeInner);
 
@@ -1408,7 +1225,7 @@ function init() {
   // far face in key light, which is what makes mounds/tiers read as
   // 3D at a glance instead of as subtle tonal shifts.
   // Elevation: atan(3.6 / sqrt(7^2 + 6^2)) ≈ 21°
-  const key = new THREE.DirectionalLight(0xffd89c, 3.2);
+  const key = new THREE.DirectionalLight(0xffd89c, 2.7);
   key.position.set(-7, 3.6, -6);
   key.target.position.set(0, 0, 0);
   scene.add(key.target);
@@ -1717,25 +1534,6 @@ function updateGeometry(t) {
     }
   }
 
-  /* ---- Blades ride the live turf ----
-     Sample the SAME height function the mesh uses so each blade stays
-     planted as the green morphs. sampleTurfHeight already bakes in
-     turfBump, so we do NOT add rec.bh again. Only run during active
-     transitions — idle is static. */
-  if (window.__blades && typeof transStart !== 'undefined' && transStart >= 0) {
-    const b = window.__blades;
-    const mesh = b.mesh, recs = b.records, n = b.count, d = b.dummy;
-    for (let k = 0; k < n; k++) {
-      const r = recs[k];
-      const s = sampleTurfHeight(r.wx, r.wz, fn, intensity);
-      d.position.set(r.wx, GREEN_BASE_Y + s.h, r.wz);
-      d.rotation.set(r.tilt, r.rotY, 0);
-      d.scale.set(r.widthM, r.heightM, r.widthM);
-      d.updateMatrix();
-      mesh.setMatrixAt(k, d.matrix);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-  }
 }
 
 /* =================================================================
