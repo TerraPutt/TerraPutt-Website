@@ -180,7 +180,7 @@
   @media (prefers-reduced-motion: reduce) { #canvas-host { transition: none; } }
   #vignette {
     position: absolute; inset: 0; pointer-events: none; z-index: 3;
-    background: radial-gradient(ellipse 78% 70% at 52% 46%, transparent 52%, rgba(0,0,0,0.62) 100%);
+    background: radial-gradient(ellipse 80% 72% at 52% 46%, transparent 55%, rgba(0,0,0,0.48) 100%);
   }
   #grain {
     position: absolute; inset: 0; pointer-events: none; z-index: 4;
@@ -191,7 +191,7 @@
   .hero::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 38%;
     z-index: 2; pointer-events: none;
-    background: linear-gradient(180deg, rgba(58,44,28,0.5) 0%, rgba(30,24,16,0.12) 55%, transparent 100%);
+    background: linear-gradient(180deg, rgba(8,7,6,0.22) 0%, rgba(8,7,6,0.04) 50%, transparent 100%);
   }
   /* legibility scrim — anchors the copy on the left and bottom without
      a card, so text stays readable over the lit green */
@@ -456,7 +456,7 @@
     .hero-overlay { justify-content: flex-start; padding-top: clamp(96px, 17vh, 170px); }
     .hero::after {
       background:
-        linear-gradient(180deg, rgba(8,7,6,0.78) 0%, rgba(8,7,6,0.55) 34%, rgba(8,7,6,0.10) 56%, transparent 70%),
+        linear-gradient(180deg, rgba(8,7,6,0.58) 0%, rgba(8,7,6,0.40) 38%, rgba(8,7,6,0.12) 58%, transparent 70%),
         linear-gradient(0deg, rgba(8,7,6,0.72) 0%, rgba(8,7,6,0.0) 22%);
     }
     h1.hero-title { font-size: clamp(44px, 12.5vw, 72px); }
@@ -705,11 +705,11 @@ let activeId   = 'flat';
 let fromId     = 'flat';
 let toId       = 'flat';
 let transStart = -1;
-const T_ANTICIPATE = 0.28;
-const T_DOWN       = 0.55;
-const T_HOLD       = 0.45;
-const T_UP         = 0.75;
-const T_SETTLE     = 0.30;
+const T_ANTICIPATE = 0.56;   // half-speed reconfigure (was 0.28 / 0.55 / 0.45 / 0.75 / 0.30)
+const T_DOWN       = 1.10;
+const T_HOLD       = 0.90;
+const T_UP         = 1.50;
+const T_SETTLE     = 0.60;
 const T_TOTAL = T_ANTICIPATE + T_DOWN + T_HOLD + T_UP + T_SETTLE;
 
 function byId(id) { return topologies.find(t => t.id === id); }
@@ -794,7 +794,7 @@ function sampleTurfHeight(x, z, fn, intensity) {
 function init() {
   scene = new THREE.Scene();
   scene.background = null;
-  scene.fog = new THREE.Fog(0x1e1712, 24, 150);   // warm dusk haze; matches the sky dome at the horizon
+  scene.fog = new THREE.Fog(0x8fb4d4, 30, 170);   // aerial perspective: the far lawn lifts toward the horizon blue   // warm dusk haze; the far lawn fades into the horizon glow
 
   const host = document.getElementById('canvas-host');
   const w = host.clientWidth, h = host.clientHeight;
@@ -1259,7 +1259,7 @@ function init() {
   // Ambient/hemi dropped — these were the main culprits lifting the
   // shadow side into a middle-grey and washing out topology relief.
   scene.add(new THREE.AmbientLight(0x342a22, 0.30));               // warm dusk bounce
-  scene.add(new THREE.HemisphereLight(0x4a6284, 0x140e08, 0.38));  // cool sky over warm ground
+  scene.add(new THREE.HemisphereLight(0x6f97cf, 0x140e08, 0.44));   // blue sky fill over warm ground  // cool sky over warm ground
 
   window.addEventListener('resize', onResize);
 }
@@ -1276,13 +1276,20 @@ function buildEnvironment() {
   skyCanvas.width = 4; skyCanvas.height = 1024;
   const sg = skyCanvas.getContext('2d');
   const sky = sg.createLinearGradient(0, 0, 0, 1024);
-  sky.addColorStop(0.00, '#06070d');   // zenith: deep, cool
-  sky.addColorStop(0.30, '#12131e');
-  sky.addColorStop(0.42, '#2a2431');   // dusk mauve
-  sky.addColorStop(0.466, '#5e4230');
-  sky.addColorStop(0.488, '#a06a38');  // last light: a thin amber band at the horizon
-  sky.addColorStop(0.501, '#3a2a1e');
-  sky.addColorStop(0.53, '#17130f');
+  // The camera only ever sees ~14 degrees above the horizon, so the blue has
+  // to live right there: azure just above the line, deepening quickly upward.
+  sky.addColorStop(0.00, '#061c4e');   // zenith: deep cobalt
+  sky.addColorStop(0.20, '#0d3f96');
+  sky.addColorStop(0.34, '#1660bd');
+  sky.addColorStop(0.41, '#2379d4');
+  sky.addColorStop(0.45, '#3f95e0');   // azure, within the visible band
+  sky.addColorStop(0.472, '#6cb3ea');
+  sky.addColorStop(0.487, '#95cbf0');  // clear sky blue toward the horizon
+  sky.addColorStop(0.4945, '#bfe0f4');
+  sky.addColorStop(0.4975, '#f2e2c4'); // a thread of last light on the line itself
+  sky.addColorStop(0.501, '#8fb4d4');  // below the line: the haze the far lawn fades into
+  sky.addColorStop(0.52, '#1d242b');
+  sky.addColorStop(0.60, '#0d0e10');
   sky.addColorStop(1.00, '#0c0b0a');
   sg.fillStyle = sky; sg.fillRect(0, 0, 4, 1024);
   const skyTex = new THREE.CanvasTexture(skyCanvas);
@@ -1294,6 +1301,82 @@ function buildEnvironment() {
   skyDome.renderOrder = -10;
   scene.add(skyDome);
 
+  let sseed = 23;
+  const srnd = () => { sseed = (sseed * 9301 + 49297) % 233280; return sseed / 233280; };
+
+  /* Cirrus: a translucent band of streaky cloud on a cylinder just inside the
+     dome, lit from below by the last light. Value noise stretched sideways,
+     domain-warped so the streaks bend. */
+  const cW = 1024, cH = 256;
+  const cCanvas = document.createElement('canvas');
+  cCanvas.width = cW; cCanvas.height = cH;
+  const cctx = cCanvas.getContext('2d');
+  const cImg = cctx.createImageData(cW, cH);
+  const perm = new Uint8Array(512);
+  for (let i = 0; i < 256; i++) perm[i] = i;
+  for (let i = 255; i > 0; i--) { const j = Math.floor(srnd() * (i + 1)); const t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
+  for (let i = 0; i < 256; i++) perm[256 + i] = perm[i];
+  const lat = (x, y) => perm[(perm[x & 255] + (y & 255)) & 511] / 255;
+  const vnoise = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = lat(xi, yi), b = lat(xi + 1, yi), c = lat(xi, yi + 1), d = lat(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const fbm = (x, y) => { let sum = 0, amp = 0.5, f = 1; for (let o = 0; o < 5; o++) { sum += amp * vnoise(x * f, y * f); amp *= 0.5; f *= 2.1; } return sum; };
+  for (let py = 0; py < cH; py++) {
+    const v = 1 - py / cH;                          // 0 at the horizon, 1 at the top of the band
+    for (let px = 0; px < cW; px++) {
+      const i4 = (py * cW + px) * 4;
+      const nx = (px / cW) * 24, ny = (py / cH) * 3;   // 8:1 stretch -> streaks
+      const warp = fbm(nx * 0.35 + 7.1, ny * 0.7 + 3.3) * 1.6;
+      const n = fbm(nx + warp, ny * 2.2 + warp * 0.5);
+      let a = Math.max(0, Math.min(1, (n - 0.50) / 0.22));
+      a *= Math.pow(Math.max(0, 1 - v), 0.6) * 0.62;   // thickest low, thinning upward
+      a *= Math.min(1, v * 14);                          // not sitting on the horizon line itself
+      cImg.data[i4]     = Math.round(244 - v * 30);      // white cirrus, a hint of warmth low
+      cImg.data[i4 + 1] = Math.round(238 - v * 26);
+      cImg.data[i4 + 2] = Math.round(232 - v * 14);
+      cImg.data[i4 + 3] = Math.round(a * 255);
+    }
+  }
+  cctx.putImageData(cImg, 0, 0);
+  const cirrusTex = new THREE.CanvasTexture(cCanvas);
+  cirrusTex.wrapS = THREE.RepeatWrapping;
+  cirrusTex.repeat.set(2, 1);
+  const cirrus = new THREE.Mesh(
+    new THREE.CylinderGeometry(172, 172, 86, 96, 1, true),
+    new THREE.MeshBasicMaterial({ map: cirrusTex, transparent: true, side: THREE.BackSide, depthWrite: false, fog: false })
+  );
+  cirrus.position.y = 2.4 + 43 - 1.5;
+  cirrus.renderOrder = -9;
+  scene.add(cirrus);
+
+  /* A few stars in the darker upper sky: points, additive, not fogged. */
+  const STAR_N = 420;
+  const starPos = new Float32Array(STAR_N * 3);
+  const starCol = new Float32Array(STAR_N * 3);
+  for (let i = 0; i < STAR_N; i++) {
+    const el = (7 + srnd() * 75) * Math.PI / 180;
+    const az = srnd() * Math.PI * 2;
+    const r = 176;
+    starPos[i * 3]     = Math.cos(el) * Math.cos(az) * r;
+    starPos[i * 3 + 1] = 2.4 + Math.sin(el) * r;
+    starPos[i * 3 + 2] = Math.cos(el) * Math.sin(az) * r;
+    const br = (0.06 + srnd() * 0.22) * Math.min(1, (el - 0.1) * 2.2);   // faint: blue hour, not night
+    starCol[i * 3] = br; starCol[i * 3 + 1] = br * 0.97; starCol[i * 3 + 2] = br * 0.92;
+  }
+  const starGeom = new THREE.BufferGeometry();
+  starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  starGeom.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+  const stars = new THREE.Points(starGeom, new THREE.PointsMaterial({
+    size: 1.6, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.9,
+    depthWrite: false, fog: false, blending: THREE.AdditiveBlending
+  }));
+  stars.renderOrder = -9;
+  scene.add(stars);
+
   /* Ground: a warm, dark lawn with a little tonal noise so it reads
      as a surface rather than a void. Sits just below the turf edge. */
   const gCanvas = document.createElement('canvas');
@@ -1303,9 +1386,9 @@ function buildEnvironment() {
   for (let i = 0; i < 512 * 512; i++) {
     const n = (Math.random() - 0.5) * 22;
     const m = (Math.random() - 0.5) * 8;
-    gImg.data[i*4]     = Math.max(0, Math.min(255, 30 + n + m));
-    gImg.data[i*4 + 1] = Math.max(0, Math.min(255, 40 + n));
-    gImg.data[i*4 + 2] = Math.max(0, Math.min(255, 22 + n - m));
+    gImg.data[i*4]     = Math.max(0, Math.min(255, 22 + n + m));
+    gImg.data[i*4 + 1] = Math.max(0, Math.min(255, 34 + n));
+    gImg.data[i*4 + 2] = Math.max(0, Math.min(255, 17 + n - m));
     gImg.data[i*4 + 3] = 255;
   }
   gctx.putImageData(gImg, 0, 0);
@@ -1316,7 +1399,7 @@ function buildEnvironment() {
      the coping), so a bowl or false front can dip below lawn level without
      the lawn showing through the turf. Below the turf is dark, as it should be. */
   const lawnShape = new THREE.Shape();
-  lawnShape.moveTo(-120, -120); lawnShape.lineTo(120, -120); lawnShape.lineTo(120, 120); lawnShape.lineTo(-120, 120); lawnShape.closePath();
+  lawnShape.moveTo(-200, -200); lawnShape.lineTo(200, -200); lawnShape.lineTo(200, 200); lawnShape.lineTo(-200, 200); lawnShape.closePath();
   const hole = new THREE.Path();
   const HN = 192;
   for (let i = 0; i < HN; i++) {
@@ -1334,7 +1417,7 @@ function buildEnvironment() {
   groundTex.repeat.set(0.075, 0.075);
   groundFloor = new THREE.Mesh(
     lawnGeom,
-    new THREE.MeshStandardMaterial({ map: groundTex, color: 0x56624a, roughness: 1.0, metalness: 0.0 })
+    new THREE.MeshStandardMaterial({ map: groundTex, color: 0x3a5034, roughness: 1.0, metalness: 0.0 })
   );
   groundFloor.rotation.x = -Math.PI / 2;
   groundFloor.position.y = -0.02;
@@ -1487,7 +1570,10 @@ function updateGeometry(t) {
   if (flag && flag.userData.basePos) {
     // Subtle whole-flag yaw: simulates gusts swinging the cloth around
     // the pole. Kept small so the per-vertex wave does the heavy lift.
-    flag.rotation.y = Math.sin(t * 0.9) * 0.05 + Math.sin(t * 0.28) * 0.025;
+    // A slow gust envelope drives everything: the flag lifts in a gust and
+    // settles between them, never snapping.
+    const gust = 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.31) * Math.sin(t * 0.117 + 1.3));
+    flag.rotation.y = Math.sin(t * 0.55) * 0.06 * gust + Math.sin(t * 0.19) * 0.035;
 
     const pos = flag.geometry.attributes.position;
     const base = flag.userData.basePos;
@@ -1499,11 +1585,11 @@ function updateGeometry(t) {
       const w = (bx + W/2) / W;
       const w2 = w * w; // sharper taper so pole side stays anchored
       // Primary slow traveling wave
-      const wave  = Math.sin(t * 2.3 - w * 5.0) * 0.045 * w2;
+      const wave  = Math.sin(t * 1.5 - w * 4.2) * 0.05 * w2 * gust;
       // Secondary high-freq flutter — vertical bands
-      const flutter = Math.sin(t * 3.8 - w * 10.0 + by * 14.0) * 0.012 * w;
+      const flutter = Math.sin(t * 2.6 - w * 8.0 + by * 12.0) * 0.007 * w * gust;
       // Gentle gravity droop at the free edge
-      const droop = -0.012 * w2;
+      const droop = -(0.010 + 0.022 * (1 - gust)) * w2;   // hangs lower when the breeze drops
       pos.setX(i, bx);
       pos.setY(i, by + droop);
       pos.setZ(i, wave + flutter);
@@ -1540,8 +1626,8 @@ function updateGeometry(t) {
    Camera — two composed poses (landscape / portrait) and a slow idle
    dolly. The product rests; the camera breathes.
    ================================================================= */
-const CAM_LANDSCAPE = { x: 5.6, y: 2.5,  z: 11.4, fov: 28, lookX: -1.85, lookY: 0.55, lookZ: 0.15 };
-const CAM_PORTRAIT  = { x: 1.4, y: 3.6,  z: 12.6, fov: 36, lookX: 0.2,  lookY: 1.9,  lookZ: -0.4 };
+const CAM_LANDSCAPE = { x: 5.6, y: 2.5,  z: 11.4, fov: 28, lookX: -1.85, lookY: 1.45, lookZ: 0.15 };
+const CAM_PORTRAIT  = { x: 1.4, y: 3.6,  z: 12.6, fov: 36, lookX: 0.2,  lookY: 2.4,  lookZ: -0.4 };
 let CAM = CAM_LANDSCAPE;
 function applyCameraPose(aspect) {
   CAM = aspect < 0.92 ? CAM_PORTRAIT : CAM_LANDSCAPE;
@@ -1575,7 +1661,8 @@ let heroVisible = true;
 let rafId = 0;
 let engineReady = false;
 function frame() {
-  if (!heroVisible || document.hidden) { rafId = 0; return; }
+  // Always render the first frame (it lifts the poster); pause only after that.
+  if (engineReady && (!heroVisible || document.hidden)) { rafId = 0; return; }
   rafId = requestAnimationFrame(frame);
   const tNow = performance.now() / 1000;
   updateGeometry(tNow);
@@ -1601,7 +1688,7 @@ document.addEventListener('visibilitychange', resumeIfNeeded);
    the library, holding each shape long enough to read.
    ================================================================= */
 const DEMO_CYCLE = ['backstop', 'goldenbell', 'sidehill', 'bowl', 'plateau', 'pinehurst', 'uphill', 'downhill', 'flat'];
-const DEMO_INTERVAL = LOW_POWER ? 6000 : 4000;
+const DEMO_INTERVAL = LOW_POWER ? 10000 : 8000;   // ~4.7 s reshape + a hold long enough to read
 let demoIdx = 0;
 function stepDemo() {
   if (!heroVisible || document.hidden) return;
@@ -1615,7 +1702,7 @@ function start() {
   try {
     init();
     frame();
-    setTimeout(stepDemo, 2600);
+    setTimeout(stepDemo, 3000);
     setInterval(stepDemo, DEMO_INTERVAL);
   } catch (err) {
     // No WebGL, or a driver failure: the poster still is the hero.
@@ -1632,6 +1719,7 @@ if (!REDUCED_MOTION) {
 // Small debug / capture handle (module scope is otherwise sealed).
 window.__TP = {
   get topology() { return activeId; },
+  get state() { return { heroVisible, hidden: document.hidden, engineReady, rafId, lowPower: LOW_POWER }; },
   selectTopo(id) { selectTopology(id); },
   settle() { transStart = -1; activeId = toId; },
   // Render one frame at the current size and hand back a JPEG data URL.
