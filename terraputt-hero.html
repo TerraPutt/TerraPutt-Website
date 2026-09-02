@@ -1416,8 +1416,8 @@ function init() {
   const SHADOW_RES = LOW_POWER ? 2048 : 4096;
   key.shadow.mapSize.width = SHADOW_RES;
   key.shadow.mapSize.height = SHADOW_RES;
-  key.shadow.camera.left = -18; key.shadow.camera.right = 18;
-  key.shadow.camera.top = 18;  key.shadow.camera.bottom = -18;
+  key.shadow.camera.left = -10; key.shadow.camera.right = 10;
+  key.shadow.camera.top = 10;  key.shadow.camera.bottom = -10;
   key.shadow.camera.near = 0.1; key.shadow.camera.far = 60;
   key.shadow.bias = -0.00015;
   key.shadow.normalBias = 0.035;   // was 0.06 — less "peter panning" so shadows stay attached to raised topology
@@ -1567,7 +1567,6 @@ function buildEnvironment() {
   coping.receiveShadow = true;
   scene.add(coping);
 
-  buildGarden();
 }
 
 function easeInOut(t) { return t<0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
@@ -1736,191 +1735,6 @@ function updateGeometry(t) {
       mesh.setMatrixAt(k, d.matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
-  }
-}
-
-/* =================================================================
-   Garden — the designed landscape the green belongs to: clipped
-   hedges as a backdrop, trees with real volume, a stone terrace with
-   path lights where the viewer stands, and a far ring of trees for
-   the horizon. Everything is dark at dusk and lit from behind.
-   ================================================================= */
-function buildGarden() {
-  const leaf  = new THREE.MeshStandardMaterial({ color: 0x142019, roughness: 1.0, metalness: 0.0 });
-  const leafFar = new THREE.MeshBasicMaterial({ color: 0x0f170f, fog: true });
-  const hedge = new THREE.MeshStandardMaterial({ color: 0x182618, roughness: 1.0, metalness: 0.0 });
-  const bark  = new THREE.MeshStandardMaterial({ color: 0x2a2119, roughness: 0.95, metalness: 0.0 });
-
-  // Clipped hedge blocks behind the green, a broken line with gaps for depth
-  const hedges = [
-    // x, z, length(x), height, depth(z)
-    [ 0.0, -8.0, 14.0, 0.82, 0.9],   // main clipped hedge across the back
-    [ 0.0, -7.1, 14.6, 0.38, 0.5],   // lower step in front of it
-    [-7.3, -4.9,  0.9, 0.82, 5.4],   // return down the left side
-    [ 7.3, -6.4,  0.9, 0.82, 2.6]    // short return on the right, open toward the terrace
-  ];
-  for (const [x, z, l, h, d] of hedges) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(l, h, d), hedge);
-    m.position.set(x, h / 2 - 0.02, z);
-    m.castShadow = true; m.receiveShadow = true;
-    scene.add(m);
-  }
-  // A dark planting bed under the hedge line so it sits in the ground rather than on it
-  const bedMat = new THREE.MeshStandardMaterial({ color: 0x100e0a, roughness: 1.0 });
-  for (const [x, z, w, d] of [[0.0, -7.55, 15.6, 2.0], [-7.3, -4.6, 1.9, 6.4], [7.3, -6.2, 1.9, 3.6]]) {
-    const bed = new THREE.Mesh(new THREE.PlaneGeometry(w, d), bedMat);
-    bed.rotation.x = -Math.PI / 2;
-    bed.position.set(x, -0.012, z);
-    bed.receiveShadow = true;
-    scene.add(bed);
-  }
-  // Two clipped balls at the terrace corners
-  for (const [x, z, r] of [[-7.3, -8.0, 0.5], [7.3, -8.0, 0.5]]) {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), hedge);
-    b.position.set(x, r - 0.05, z);
-    b.castShadow = true; b.receiveShadow = true;
-    scene.add(b);
-  }
-
-  // Clipped columns (cypress) behind the hedge, a formal rhythm against the last light
-  const colGeom = new THREE.SphereGeometry(1, 10, 12);
-  for (const x of [-6, -3, 0, 3, 6]) {
-    const h = 4.2 + (Math.abs(x) < 1 ? 0.4 : 0);
-    const c = new THREE.Mesh(colGeom, hedge);
-    c.scale.set(0.3, h / 2, 0.3);
-    c.position.set(x, h / 2 - 0.02, -9.0);
-    c.castShadow = true; c.receiveShadow = true;
-    scene.add(c);
-  }
-
-  // Trees: a trunk and overlapping crowns, low-poly so they read soft
-  const crownGeom = new THREE.SphereGeometry(1, 12, 10);
-  const trunkGeom = new THREE.CylinderGeometry(0.09, 0.14, 1, 8);
-  function tree(x, z, s, seedBits) {
-    const g = new THREE.Group();
-    const trunkH = 2.3 * s;
-    const t = new THREE.Mesh(trunkGeom, bark);
-    t.scale.set(s, trunkH, s);
-    t.position.y = trunkH / 2;
-    t.castShadow = true;
-    g.add(t);
-    const crowns = [[0, 2.7, 0, 1.15], [0.7, 3.0, 0.4, 0.95], [-0.7, 3.1, -0.3, 0.9], [0.2, 3.7, 0.15, 0.85], [0.9, 3.6, -0.5, 0.75], [-0.5, 3.9, 0.6, 0.7], [0.1, 4.3, 0, 0.6]];
-    crowns.forEach(([cx, cy, cz, cr], i) => {
-      const c = new THREE.Mesh(crownGeom, leaf);
-      const jitter = 1 + (((seedBits >> i) & 1) ? 0.08 : -0.06);
-      c.scale.setScalar(cr * s * jitter);
-      c.position.set(cx * s, cy * s, cz * s);
-      c.castShadow = true; c.receiveShadow = true;
-      g.add(c);
-    });
-    g.position.set(x, -0.02, z);
-    scene.add(g);
-    return g;
-  }
-  // Mid-distance trees around the back and sides
-  tree( 23.0, -12.0, 1.15, 1);
-  tree( 19.0,   9.5, 0.95, 3);
-  // Woodland edge on the horizon: hundreds of overlapping, flattened crowns in one
-  // instanced draw. Low and dense, so it reads as a soft dark band under the last light.
-  let seed = 11;
-  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-  const WOOD_N = 480;
-  const wood = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), leafFar, WOOD_N);
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < WOOD_N; i++) {
-    const th = rnd() * Math.PI * 2;
-    const r = 30 + rnd() * 10;
-    const sx = 0.8 + rnd() * 0.9, sy = (0.55 + rnd() * 0.55), sz = 0.8 + rnd() * 0.7;
-    dummy.position.set(Math.cos(th) * r, sy * 0.5 + rnd() * 0.4, Math.sin(th) * r);
-    dummy.scale.set(sx, sy, sz);
-    dummy.rotation.y = rnd() * Math.PI;
-    dummy.updateMatrix();
-    wood.setMatrixAt(i, dummy.matrix);
-  }
-  wood.instanceMatrix.needsUpdate = true;
-  scene.add(wood);
-
-  // Far treeline: a feathered silhouette band on a distant ring. Many small soft
-  // clumps per tree so the canopy edge is ragged, never a hard blob.
-  const tCanvas = document.createElement('canvas');
-  tCanvas.width = 4096; tCanvas.height = 512;
-  const tctx = tCanvas.getContext('2d');
-  tctx.clearRect(0, 0, 4096, 512);
-  const clump = (cx, cy, r, a) => {
-    const g = tctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
-    g.addColorStop(0, 'rgba(12,17,12,' + a + ')');
-    g.addColorStop(0.7, 'rgba(12,17,12,' + (a * 0.85) + ')');
-    g.addColorStop(1, 'rgba(12,17,12,0)');
-    tctx.fillStyle = g; tctx.beginPath(); tctx.arc(cx, cy, r, 0, Math.PI * 2); tctx.fill();
-  };
-  // understorey: a continuous soft band along the bottom
-  for (let x = -40; x < 4136; x += 18) clump(x, 470 + Math.sin(x * 0.013) * 12, 60 + Math.sin(x * 0.031) * 18, 1);
-  for (let i = 0; i < 150; i++) {
-    const x = rnd() * 4096;
-    if (rnd() < 0.22) {            // conifer: a narrow stack of clumps
-      const h = 220 + rnd() * 220, w = 46 + rnd() * 30;
-      for (let k = 0; k < 40; k++) { const f = k / 39; clump(x + (rnd() - 0.5) * w * (1 - f) * 0.35, 470 - h * f, w * (1 - f * 0.78) * 0.62 + 9, 1); }
-    } else {                       // broadleaf: an ellipse of many small clumps
-      const h = 150 + rnd() * 200, w = 120 + rnd() * 200;
-      const cy = 470 - h * 0.62;
-      for (let k = 0; k < 42; k++) {
-        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd());
-        clump(x + Math.cos(a) * d * w * 0.5, cy + Math.sin(a) * d * h * 0.42, 14 + rnd() * 26, 0.95);
-      }
-      tctx.fillStyle = 'rgba(12,17,12,1)'; tctx.fillRect(x - 5, cy, 10, 470 - cy);
-    }
-  }
-  const treeTex = new THREE.CanvasTexture(tCanvas);
-  treeTex.wrapS = THREE.RepeatWrapping;
-  treeTex.repeat.set(4, 1);
-  const treeline = new THREE.Mesh(
-    new THREE.CylinderGeometry(85, 85, 10, 128, 1, true),
-    new THREE.MeshBasicMaterial({ map: treeTex, transparent: true, side: THREE.BackSide, depthWrite: false, fog: true })
-  );
-  treeline.position.y = 5 - 1.0;
-  scene.add(treeline);
-
-  // Stone terrace: large pavers with dark joints, in the foreground where the viewer stands
-  const pCanvas = document.createElement('canvas');
-  pCanvas.width = 512; pCanvas.height = 512;
-  const p = pCanvas.getContext('2d');
-  p.fillStyle = '#5b544a'; p.fillRect(0, 0, 512, 512);            // joints
-  const cols = 2, rows = 3, J = 5;
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const w = 512 / cols, h = 512 / rows;
-    const shade = 150 + Math.floor(((r * 7 + c * 13) % 5) * 5);
-    p.fillStyle = 'rgb(' + (shade + 4) + ',' + (shade - 4) + ',' + (shade - 18) + ')';
-    p.fillRect(c * w + J, r * h + J, w - J * 2, h - J * 2);
-  }
-  const pTex = new THREE.CanvasTexture(pCanvas);
-  pTex.wrapS = pTex.wrapT = THREE.RepeatWrapping;
-  pTex.repeat.set(5, 3);
-  pTex.anisotropy = 8;
-  const terrace = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.5, 7.0),
-    new THREE.MeshStandardMaterial({ map: pTex, color: 0x9a9080, roughness: 0.9, metalness: 0.0 })
-  );
-  terrace.rotation.x = -Math.PI / 2;
-  terrace.position.set(9.5, -0.004, 2.0);
-  terrace.receiveShadow = true;
-  scene.add(terrace);
-
-  // Path lights along the terrace edge: a small warm glow on the coping and turf
-  const postGeom = new THREE.CylinderGeometry(0.035, 0.04, 0.52, 10);
-  const capGeom  = new THREE.CylinderGeometry(0.07, 0.05, 0.05, 12);
-  const postMat  = new THREE.MeshStandardMaterial({ color: 0x2a241e, roughness: 0.6, metalness: 0.5 });
-  const glowMat  = new THREE.MeshStandardMaterial({ color: 0xffd7a8, emissive: 0xffb872, emissiveIntensity: 2.2, roughness: 0.4 });
-  for (const [x, z] of [[6.4, 6.0], [9.2, 4.3]]) {
-    const post = new THREE.Mesh(postGeom, postMat);
-    post.position.set(x, 0.26, z);
-    post.castShadow = true;
-    scene.add(post);
-    const cap = new THREE.Mesh(capGeom, glowMat);
-    cap.position.set(x, 0.545, z);
-    scene.add(cap);
-    const pl = new THREE.PointLight(0xffb474, LOW_POWER ? 0.5 : 0.75, 5.5, 2);
-    pl.position.set(x, 0.5, z);
-    scene.add(pl);
   }
 }
 
