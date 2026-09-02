@@ -1,10 +1,30 @@
 [build]
   publish = "."
 
+# Home
 [[redirects]]
   from = "/"
   to = "/terraputt-hero.html"
   status = 200
+
+# Application page lives at /apply
+[[redirects]]
+  from = "/apply"
+  to = "/apply.html"
+  status = 200
+
+# Old application URL (from the "follow the build" era)
+[[redirects]]
+  from = "/follow"
+  to = "/apply"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/follow.html"
+  to = "/apply"
+  status = 301
+  force = true
 
 [[headers]]
   for = "/*"
@@ -12,3 +32,14 @@
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Photography, share image, icons — filenames are stable, so cache for 30 days
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"

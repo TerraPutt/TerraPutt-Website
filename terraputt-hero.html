@@ -31,6 +31,25 @@
 <title>TerraPutt — an outdoor putting surface that reshapes on command</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="TerraPutt is a connected outdoor putting surface that physically reshapes on command — any break, any topology, any hole. First installations: Houston, by application.">
+<link rel="canonical" href="https://terraputt.com/">
+<meta name="theme-color" content="#0c0b0a">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TerraPutt">
+<meta property="og:url" content="https://terraputt.com/">
+<meta property="og:title" content="TerraPutt — The ground, on command.">
+<meta property="og:description" content="The first putting surface that physically reshapes on command. First installations: Houston, by application.">
+<meta property="og:image" content="https://terraputt.com/assets/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TerraPutt — The ground, on command.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TerraPutt — The ground, on command.">
+<meta name="twitter:description" content="The first putting surface that physically reshapes on command. First installations: Houston, by application.">
+<meta name="twitter:image" content="https://terraputt.com/assets/og-image.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"TerraPutt","url":"https://terraputt.com/","logo":"https://terraputt.com/assets/apple-touch-icon.png","description":"A connected outdoor putting surface that physically reshapes on command. First installations by application, Houston area.","areaServed":"Houston, Texas"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -41,17 +60,18 @@
     --paper-2:  #ece5d8;
     --ink:      #1b1a16;
     --ink-mid:  rgba(27,26,22,0.66);
-    --ink-dim:  rgba(27,26,22,0.42);
+    --ink-dim:  rgba(27,26,22,0.64);   /* text only — 4.9:1 on paper; rules use --border / --ink-faint */
     --ink-faint:rgba(27,26,22,0.15);
     --green:    #2f4a33;
     --green-2:  #243a28;
     --brass:    #9a7b46;
+    --brass-text: #775a2b;   /* brass when set as text on paper (5.6:1); rules and dots keep --brass */
     --border:   rgba(27,26,22,0.14);
     /* dark dusk hero stage */
     --stage:        #0c0b0a;
     --on-dark:      #f1ece2;
     --on-dark-mid:  rgba(241,236,226,0.64);
-    --on-dark-dim:  rgba(241,236,226,0.40);
+    --on-dark-dim:  rgba(241,236,226,0.60);   /* text only — 6.4:1 on stage */
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -70,7 +90,7 @@
   .serif { font-family: "Fraunces", Georgia, serif; }
   .eyebrow {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.26em;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.26em;
     text-transform: uppercase; color: var(--ink-dim);
     display: inline-flex; align-items: center; gap: 12px;
     margin: 0 0 26px;
@@ -98,7 +118,7 @@
   .nav-right { display: flex; align-items: center; gap: 26px; }
   .nav-tag {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.22em;
     text-transform: uppercase; color: var(--on-dark-dim);
     transition: color 0.4s ease;
   }
@@ -210,7 +230,7 @@
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(36,58,40,0.35); background: var(--green-2); }
   .hero-meta {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.22em;
     text-transform: uppercase; color: var(--on-dark-dim);
   }
   /* live "now reshaping" caption, lower-left of the hero */
@@ -222,7 +242,7 @@
   .live-name {
     display: inline-flex; align-items: center; gap: 11px;
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.2em;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.2em;
     text-transform: uppercase; color: var(--on-dark-mid);
   }
   .live-name .dot {
@@ -233,7 +253,7 @@
   @keyframes pulse { 50% { opacity: 0.35; } }
   .scrolltip {
     font-family: "Inter Tight", sans-serif;
-    font-size: 10px; font-weight: 500; letter-spacing: 0.24em;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.24em;
     text-transform: uppercase; color: var(--on-dark-dim);
     display: inline-flex; align-items: center; gap: 10px;
   }
@@ -263,8 +283,8 @@
   .cat-group { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: baseline; padding-top: 28px; border-top: 1px solid var(--border); }
   .cat-label {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.22em;
-    text-transform: uppercase; color: var(--brass);
+    font-size: 12px; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--brass-text);
   }
   .cat-items {
     font-family: "Fraunces", serif; font-weight: 300;
@@ -294,7 +314,7 @@
   .steps { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; }
   .step .s-num {
     font-family: "Fraunces", serif; font-style: italic; font-weight: 400;
-    font-size: 30px; color: var(--brass); margin-bottom: 18px;
+    font-size: 30px; color: var(--brass-text); margin-bottom: 18px;
   }
   .step .s-title {
     font-family: "Inter Tight", sans-serif;
@@ -322,6 +342,9 @@
     background-image:
       linear-gradient(90deg, rgba(243,239,230,0.80) 0%, rgba(240,235,225,0.84) 52%, rgba(243,239,230,0.90) 100%),
       url("assets/vision-golden.jpg");
+    background-image:
+      linear-gradient(90deg, rgba(243,239,230,0.80) 0%, rgba(240,235,225,0.84) 52%, rgba(243,239,230,0.90) 100%),
+      image-set(url("assets/vision-golden.webp") type("image/webp"), url("assets/vision-golden.jpg") type("image/jpeg"));
     background-size: cover, cover;
     background-position: center, center 60%;
     background-repeat: no-repeat;
@@ -335,12 +358,16 @@
       radial-gradient(135% 115% at 50% 46%, rgba(16,26,18,0.28) 0%, rgba(16,26,18,0) 58%),
       linear-gradient(180deg, rgba(31,50,35,0.82) 0%, rgba(20,32,22,0.80) 44%, rgba(14,23,16,0.90) 100%),
       url("assets/closing-dusk.jpg");
+    background-image:
+      radial-gradient(135% 115% at 50% 46%, rgba(16,26,18,0.28) 0%, rgba(16,26,18,0) 58%),
+      linear-gradient(180deg, rgba(31,50,35,0.82) 0%, rgba(20,32,22,0.80) 44%, rgba(14,23,16,0.90) 100%),
+      image-set(url("assets/closing-dusk.webp") type("image/webp"), url("assets/closing-dusk.jpg") type("image/jpeg"));
     background-size: cover, cover, cover;
     background-position: center, center, center 42%;
     background-repeat: no-repeat;
     color: var(--paper); text-align: center; padding: clamp(96px, 13vw, 180px) 0;
   }
-  .closing .eyebrow { color: rgba(243,239,230,0.55); justify-content: center; }
+  .closing .eyebrow { color: rgba(243,239,230,0.74); justify-content: center; }
   .closing .eyebrow::before { background: var(--brass); }
   .closing h2 {
     font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
@@ -349,7 +376,19 @@
   }
   .closing h2 em { font-style: italic; color: #d8c9a6; }
   .closing p { font-size: clamp(16px, 1.5vw, 19px); color: rgba(243,239,230,0.78); margin: 0 auto 14px; max-width: 46ch; }
-  .closing .price { color: rgba(243,239,230,0.55); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 40px; }
+  .closing .price { color: rgba(243,239,230,0.74); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 40px; }
+  /* what a Founding Owner receives — three hairline items, never a presale panel */
+  .fo-terms {
+    list-style: none; margin: 38px auto 34px; padding: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 36px;
+    max-width: 900px; text-align: left;
+  }
+  .fo-terms li {
+    padding-top: 16px; border-top: 1px solid rgba(243,239,230,0.26);
+    font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
+    font-size: clamp(18px, 1.7vw, 22px); line-height: 1.35; letter-spacing: -0.01em;
+    color: rgba(243,239,230,0.94);
+  }
   .closing .btn-primary { background: var(--paper); color: var(--green-2); border-color: var(--paper); }
   .closing .btn-primary:hover { background: #fff; border-color: #fff; box-shadow: 0 14px 40px rgba(0,0,0,0.3); }
 
@@ -361,10 +400,23 @@
   .foot .wrap { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
   .foot .wordmark { font-family: "Fraunces", serif; font-weight: 500; font-size: 18px; color: var(--on-dark); text-decoration: none; }
   .foot .wordmark .p { color: var(--on-dark-mid); }
-  .foot .f-meta { font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  .foot .f-meta { font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
 
   /* engine DOM the Three.js module still queries — kept, never shown */
   .engine-dom { position: absolute; left: -99999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
+
+  /* ===================== FOCUS + MOTION ===================== */
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--green); outline-offset: 3px; border-radius: 999px;
+  }
+  .hero a:focus-visible, .closing a:focus-visible, .foot a:focus-visible,
+  body:not(.nav-solid) .nav a:focus-visible { outline-color: var(--on-dark); }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .live-name .dot.working { animation: none; }
+    .nav, .nav *, .btn-primary, .nav-cta { transition: none !important; }
+    .btn-primary:hover, .nav-cta:hover { transform: none; }
+  }
 
   /* ===================== RESPONSIVE ===================== */
   @media (max-width: 900px) {
@@ -381,6 +433,7 @@
     .hero-live .wrap { justify-content: flex-start; }
     .scrolltip { display: none; }
     h1.hero-title { max-width: 16ch; }
+    .fo-terms { grid-template-columns: 1fr; gap: 18px; margin: 30px 0 30px; }
   }
 </style>
 </head>
@@ -391,7 +444,7 @@
   <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
   <div class="nav-right">
     <span class="nav-tag hide-sm">Houston · By application</span>
-    <a class="nav-cta" href="follow.html">Apply</a>
+    <a class="nav-cta" href="/apply">Apply</a>
   </div>
 </nav>
 
@@ -407,7 +460,7 @@
       <h1 class="hero-title">The ground,<br><em>on command.</em></h1>
       <p class="hero-sub"><strong>Most putting greens are static. Yours won't be.</strong> A connected outdoor surface that physically reshapes on command — any break, any topology, any hole. The first installations are by application.</p>
       <div class="hero-actions">
-        <a class="btn-primary" href="follow.html">Apply to be a Founding Owner <span class="ar"></span></a>
+        <a class="btn-primary" href="/apply">Apply to be a Founding Owner <span class="ar"></span></a>
         <span class="hero-meta">First installations · Houston</span>
       </div>
     </div>
@@ -530,8 +583,13 @@
     <div class="eyebrow">Founding Owners</div>
     <h2>Become a <em>Founding Owner.</em></h2>
     <p>The first installations are commissioned by application — Houston area. Tell us about your home and your game, and we'll be in touch personally, in confidence.</p>
+    <ul class="fo-terms">
+      <li>The first commissioned installations.</li>
+      <li>A direct line to the design team.</li>
+      <li>First access to new configurations and features.</li>
+    </ul>
     <p class="price">Investment-grade installations · Pricing on application</p>
-    <a class="btn-primary" href="follow.html">Apply to be a Founding Owner <span class="ar"></span></a>
+    <a class="btn-primary" href="/apply">Apply to be a Founding Owner <span class="ar"></span></a>
   </div>
 </section>
 
@@ -572,6 +630,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module">
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
+// Respect the visitor's motion preference: no idle dolly, no auto-reshape loop.
+const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 /* =================================================================
    TerraPutt Rev B — cinematic stage + reactive green
    ================================================================= */
@@ -798,57 +858,7 @@ function turfBump(x, y) {
   return a + b;
 }
 
-let topoGrid, topoGridLines = [];
-
-function buildTopoGrid() {
-  topoGrid = new THREE.Group();
-  // Grid lines sweep across the green, each made of many sample points.
-  // We store the canonical (x, z) path for each line in userData and
-  // resample the LIVE turf height at each point per-frame so the grid
-  // sits flush on the surface instead of floating above.
-  const N_LINES = 19;
-  const SAMPLES = 128;
-  // Generous range so lines extend beyond the max edgeShape stretch
-  // (~1.38). We clamp to the actual edge per-point at render time.
-  const range = R_BASE * 1.5;
-  const mat = new THREE.LineBasicMaterial({
-    color: 0x7df9ff, transparent: true, opacity: 0,
-    depthTest: true, depthWrite: false
-  });
-
-  for (let li = 0; li < N_LINES; li++) {
-    const f = (li / (N_LINES - 1)) * 2 - 1;
-    const fixed = f * range;
-    // U-line: z = fixed, x sweeps
-    const pathU = [];
-    for (let s = 0; s < SAMPLES; s++) {
-      const t = (s / (SAMPLES - 1)) * 2 - 1;
-      pathU.push([t * range, fixed]);
-    }
-    const gU = new THREE.BufferGeometry();
-    gU.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAMPLES * 3), 3));
-    const lU = new THREE.Line(gU, mat.clone());
-    lU.renderOrder = 10;
-    lU.userData = { path: pathU };
-    topoGrid.add(lU);
-    topoGridLines.push(lU);
-
-    // V-line: x = fixed, z sweeps
-    const pathV = [];
-    for (let s = 0; s < SAMPLES; s++) {
-      const t = (s / (SAMPLES - 1)) * 2 - 1;
-      pathV.push([fixed, t * range]);
-    }
-    const gV = new THREE.BufferGeometry();
-    gV.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SAMPLES * 3), 3));
-    const lV = new THREE.Line(gV, mat.clone());
-    lV.renderOrder = 10;
-    lV.userData = { path: pathV };
-    topoGrid.add(lV);
-    topoGridLines.push(lV);
-  }
-  scene.add(topoGrid);
-}
+/* (topology survey grid removed — the raking key light carries the relief) */
 
 /* Sample the live turf height at world-space (x, z). The green mesh
    uses rotation.x = -PI/2, which maps its local (X, Y) to world
@@ -877,34 +887,6 @@ function sampleTurfHeight(x, z, fn, intensity) {
   return { h, rn, R, theta };
 }
 
-function updateTopoGrid(fn, intensity, gridOpacity) {
-  if (!topoGrid) return;
-  const GREEN_BASE_Y = 0.015; // must match green.position.y
-  const LIFT = 0.025;         // sits clearly on turf
-  for (const line of topoGridLines) {
-    line.material.opacity = gridOpacity;
-    if (gridOpacity < 0.001) continue;
-    const posAttr = line.geometry.attributes.position;
-    const arr = posAttr.array;
-    const path = line.userData.path;
-    for (let i = 0; i < path.length; i++) {
-      let [x, z] = path[i];
-      const s = sampleTurfHeight(x, z, fn, intensity);
-      let sx = x, sz = z;
-      if (s.rn > 1.0) {
-        // theta is in local space; map back to world (localY = -z)
-        sx = Math.cos(s.theta) * s.R;
-        sz = -Math.sin(s.theta) * s.R;
-      }
-      const s2 = sampleTurfHeight(sx, sz, fn, intensity);
-      arr[i*3]     = sx;
-      arr[i*3 + 1] = GREEN_BASE_Y + s2.h + LIFT;
-      arr[i*3 + 2] = sz;
-    }
-    posAttr.needsUpdate = true;
-    line.geometry.computeBoundingSphere();
-  }
-}
 
 function init() {
   scene = new THREE.Scene();
@@ -1643,9 +1625,6 @@ function init() {
   }
   scene.add(reliefNodes);
 
-  /* ---------- Topology grid ---------- */
-  buildTopoGrid();
-
   /* ---------- Lighting ---------- */
   // 21° raking key — positioned BEHIND the green (camera looks at +Z,
   // light sits at -Z) so shadows cast FORWARD toward the viewer. This
@@ -1865,7 +1844,7 @@ function reconfigState(tNow) {
    Geometry update
    ================================================================= */
 function updateGeometry(t) {
-  const { fn, intensity, shimmer, epi, gridOpacity } = reconfigState(t);
+  const { fn, intensity, shimmer, epi } = reconfigState(t);
 
   const pos = geometry.attributes.position;
   const col = geometry.attributes.color;
@@ -1952,9 +1931,6 @@ function updateGeometry(t) {
     flag.geometry.computeVertexNormals();
   }
 
-  /* ---- Topology grid ---- */
-  updateTopoGrid(fn, intensity, gridOpacity);
-
   /* ---- Hole + flag + ball ride the live turf so they never bury ---- */
   const GREEN_BASE_Y = 0.015;
   if (holeInner && holePosVec) {
@@ -2038,11 +2014,11 @@ const __desiredCamPos = new THREE.Vector3();
 const __camChaseOffset = new THREE.Vector3(-0.35, 1.80, 2.35);
 function updateCamera(t) {
   if (gameState === S_HERO) {
-    const orbit = Math.sin(t * 0.10) * 0.35;
-    const rise  = Math.sin(t * 0.07) * 0.25;
+    const orbit = REDUCED_MOTION ? 0 : Math.sin(t * 0.10) * 0.35;
+    const rise  = REDUCED_MOTION ? 0 : Math.sin(t * 0.07) * 0.25;
     camera.position.x = CAM_BASE.x + orbit;
     camera.position.y = CAM_BASE.y + rise;
-    camera.position.z = CAM_BASE.z + Math.cos(t * 0.10) * 0.20;
+    camera.position.z = CAM_BASE.z + (REDUCED_MOTION ? 0 : Math.cos(t * 0.10) * 0.20);
     camera.lookAt(CAM_BASE.lookX, CAM_BASE.lookY, CAM_BASE.lookZ);
     // Keep the parked-state look target cached at the hole for when we
     // next approach — prevents a first-frame jump.
@@ -2535,8 +2511,14 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-init();
-animate();
+try {
+  init();
+  animate();
+} catch (err) {
+  // No WebGL (or a driver failure): the headline stays legible over the dusk stage colour.
+  console.warn('[TerraPutt] hero render unavailable', err);
+  document.body.classList.add('hero-static');
+}
 
 // Debug handle for in-browser inspection (module scope is otherwise isolated)
 window.__TP = {
@@ -2644,8 +2626,10 @@ function stepDemo() {
   demoIdx++;
   selectTopology(pick, false);
 }
-setTimeout(stepDemo, 2200);             // first reshape shortly after load
-setInterval(stepDemo, 4000);            // then hold ~4s between shapes
+if (!REDUCED_MOTION) {
+  setTimeout(stepDemo, 2200);           // first reshape shortly after load
+  setInterval(stepDemo, 4000);          // then hold ~4s between shapes
+}
 </script>
 </body>
 </html>

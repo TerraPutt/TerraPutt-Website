@@ -5,6 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TerraPutt — Founding Owner application</title>
 <meta name="description" content="Apply to be a Founding Owner of one of the first TerraPutt installations. Houston area, by application.">
+<link rel="canonical" href="https://terraputt.com/apply">
+<meta name="theme-color" content="#f3efe6">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TerraPutt">
+<meta property="og:url" content="https://terraputt.com/apply">
+<meta property="og:title" content="Become a Founding Owner — TerraPutt">
+<meta property="og:description" content="The first TerraPutt installations are commissioned by application. Houston area.">
+<meta property="og:image" content="https://terraputt.com/assets/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TerraPutt — The ground, on command.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Become a Founding Owner — TerraPutt">
+<meta name="twitter:description" content="The first TerraPutt installations are commissioned by application. Houston area.">
+<meta name="twitter:image" content="https://terraputt.com/assets/og-image.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -14,8 +32,9 @@
     --paper-2:  #ece5d8;
     --ink:      #1b1a16;
     --ink-mid:  rgba(27,26,22,0.66);
-    --ink-dim:  rgba(27,26,22,0.42);
+    --ink-dim:  rgba(27,26,22,0.64);   /* text only — 4.9:1 on paper */
     --ink-faint:rgba(27,26,22,0.18);
+    --ink-hint: rgba(27,26,22,0.52);   /* placeholders: a hint, visibly lighter than entered text */
     --green:    #2f4a33;
     --green-2:  #243a28;
     --brass:    #9a7b46;
@@ -67,7 +86,7 @@
   .wrap { max-width: 620px; margin: 0 auto; padding: 168px 40px 120px; }
   .eyebrow {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.26em;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.26em;
     text-transform: uppercase; color: var(--ink-dim);
     display: inline-flex; align-items: center; gap: 12px; margin: 0 0 24px;
   }
@@ -95,10 +114,10 @@
   .field { display: flex; flex-direction: column; gap: 10px; }
   .field label {
     font-family: "Inter Tight", sans-serif;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--ink-dim);
   }
-  .field label .opt { color: var(--ink-faint); letter-spacing: 0.06em; }
+  .field label .opt { color: var(--ink-dim); font-weight: 400; letter-spacing: 0.06em; }
   .field input,
   .field textarea {
     background: transparent; border: none; border-bottom: 1px solid var(--ink-faint);
@@ -107,8 +126,8 @@
     transition: border-color 0.2s ease;
   }
   .field textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
-  .field input:focus, .field textarea:focus { outline: none; border-bottom-color: var(--green); }
-  .field input::placeholder, .field textarea::placeholder { color: var(--ink-faint); }
+  .field input:focus-visible, .field textarea:focus-visible { outline: none; border-bottom-color: var(--green); box-shadow: 0 1px 0 var(--green); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--ink-hint); }
 
   .submit {
     margin-top: 14px; align-self: flex-start;
@@ -126,6 +145,17 @@
     transform: rotate(45deg);
   }
   .submit:hover { transform: translateY(-1px); background: var(--green-2); box-shadow: 0 14px 36px rgba(36,58,40,0.3); }
+  .submit:disabled { opacity: 0.72; cursor: progress; transform: none; box-shadow: none; }
+  .form-error {
+    margin: 0; padding-left: 14px; border-left: 1px solid var(--brass);
+    font-size: 14px; line-height: 1.55; color: var(--ink-mid); max-width: 44ch;
+  }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 999px; }
+  .foot a:focus-visible { outline-color: var(--on-dark); }
+  @media (prefers-reduced-motion: reduce) {
+    .submit, .field input, .field textarea { transition: none; }
+    .submit:hover { transform: none; }
+  }
 
   .note {
     margin-top: 30px; font-size: 13px; line-height: 1.7; color: var(--ink-dim);
@@ -147,7 +177,7 @@
   }
   .foot .wordmark { font-family: "Fraunces", serif; font-weight: 500; font-size: 17px; color: var(--on-dark); text-decoration: none; }
   .foot .wordmark .p { color: var(--on-dark-mid); }
-  .foot .f-meta { font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  .foot .f-meta { font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
 
   @media (max-width: 640px) {
     .wrap { padding: 120px 24px 64px; }
@@ -166,7 +196,7 @@
 </nav>
 
 <main class="wrap">
-  <div class="eyebrow">Founding Owners — Houston, by application</div>
+  <div class="eyebrow">Founding Owners · Houston</div>
   <h1>Become a <em>Founding Owner.</em></h1>
   <p class="sub">The first installations are commissioned by application. Tell us a little about your home and your game, and we'll be in touch personally — not with a newsletter.</p>
   <p class="price">Investment-grade installations · Pricing on application</p>
@@ -174,6 +204,7 @@
   <form id="accessForm"
         name="early-access"
         method="POST"
+        action="/apply"
         data-netlify="true"
         data-netlify-honeypot="bot-field"
         novalidate>
@@ -226,6 +257,7 @@
     </div>
 
     <button type="submit" class="submit">Submit application <span class="ar"></span></button>
+    <p class="form-error" id="formError" role="alert" hidden>That didn't go through. Please try once more in a moment.</p>
   </form>
 
   <div class="thanks">
@@ -243,22 +275,29 @@
 
 <script>
   const form = document.getElementById('accessForm');
+  const submitBtn = form.querySelector('.submit');
+  const formError = document.getElementById('formError');
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!form.checkValidity()) { form.reportValidity(); return; }
+    formError.hidden = true;
+    submitBtn.disabled = true;
     const body = new URLSearchParams(new FormData(form)).toString();
     try {
-      const res = await fetch('/follow.html', {
+      const res = await fetch(form.getAttribute('action') || '/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
       });
       if (!res.ok) throw new Error('Submit failed: ' + res.status);
       document.body.classList.add('sent');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (err) {
       console.error('[early-access] submit error', err);
-      alert("Couldn't submit — please try again in a moment.");
+      formError.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 </script>

@@ -1,13 +1,13 @@
 # TerraPutt — Deploy
 
-Static site, deployed to Netlify. Form submissions from [follow.html](follow.html) go to Netlify Forms.
+Static site, deployed to Netlify. Form submissions from [apply.html](apply.html) go to Netlify Forms.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
 | `terraputt-hero.html` | Hero (served at `/`) |
-| `follow.html` | "Follow the build" signup form |
+| `apply.html` | Founding Owner application form, served at `/apply` (`/follow` redirects here) |
 | `netlify.toml` | Publish config + root redirect + security headers |
 
 ## First-time deploy
@@ -35,9 +35,9 @@ Static site, deployed to Netlify. Form submissions from [follow.html](follow.htm
 
 ## Form submissions
 
-The signup form on [follow.html](follow.html) is wired to Netlify Forms:
+The signup form on [apply.html](apply.html) is wired to Netlify Forms:
 - `data-netlify="true"` + hidden `form-name` field = auto-detected on first deploy
-- Submissions show up in Netlify dashboard → Forms → `follow-build`
+- Submissions show up in Netlify dashboard → Forms → `early-access` (renamed from `follow-build`; re-detected on the first deploy after the rename)
 - Honeypot field (`bot-field`) filters bots; Netlify's built-in spam filter catches the rest
 - Email notifications: Site settings → Forms → Form notifications → add email
 
