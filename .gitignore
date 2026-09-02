@@ -19,3 +19,7 @@ dist/
 .vscode/
 .idea/
 *.swp
+
+# Gaussian splat proof-of-concept assets (unlicensed test scenes, never commit)
+assets/poc/
+splat-poc.html
