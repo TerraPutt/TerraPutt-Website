@@ -90,7 +90,31 @@
   }
 
   /* PAGE */
-  .wrap { max-width: 620px; margin: 0 auto; padding: 168px 40px 120px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 168px 40px 120px; }
+  .apply-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 80px; align-items: start; margin-top: 8px; }
+  /* what happens next */
+  .next { position: sticky; top: 110px; }
+  .next .n-label {
+    font-family: "Inter Tight", sans-serif; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 14px;
+  }
+  .next ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+  .next li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+  .next .n-num { font-family: "Fraunces", serif; font-style: italic; font-weight: 400; font-size: 22px; color: var(--brass-text, #7d5f2e); line-height: 1; padding-top: 2px; }
+  .next .n-title { font-family: "Inter Tight", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); margin-bottom: 8px; }
+  .next .n-body { font-size: 15px; line-height: 1.6; color: var(--ink-mid); }
+  /* pill choices */
+  .pills { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px; }
+  .pill { position: relative; }
+  .pill input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .pill span {
+    display: inline-block; padding: 9px 16px; border: 1px solid var(--ink-faint); border-radius: 999px;
+    font-family: "Inter Tight", sans-serif; font-size: 13px; letter-spacing: 0.04em; color: var(--ink-mid);
+    cursor: pointer; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .pill span:hover { border-color: var(--ink-mid); color: var(--ink); }
+  .pill input:checked + span { background: var(--green); color: var(--paper); border-color: var(--green); }
+  .pill input:focus-visible + span { outline: 2px solid var(--green); outline-offset: 3px; }
   .eyebrow {
     font-family: "Inter Tight", sans-serif;
     font-size: 12px; font-weight: 500; letter-spacing: 0.26em;
@@ -119,7 +143,7 @@
   form { display: flex; flex-direction: column; gap: 26px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
   .field { display: flex; flex-direction: column; gap: 10px; }
-  .field label {
+  .field label, .field .label {
     font-family: "Inter Tight", sans-serif;
     font-size: 12px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--ink-dim);
@@ -171,7 +195,7 @@
 
   /* Thanks state */
   .thanks { display: none; }
-  body.sent form { display: none; }
+  body.sent .apply-grid { display: none; }
   body.sent .note { display: none; }
   body.sent .thanks { display: block; }
   .thanks .sub { margin-bottom: 0; }
@@ -186,6 +210,10 @@
   .foot .wordmark .p { color: var(--on-dark-mid); }
   .foot .f-meta { font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
 
+  @media (max-width: 900px) {
+    .apply-grid { grid-template-columns: 1fr; gap: 44px; }
+    .next { position: static; }
+  }
   @media (max-width: 640px) {
     .wrap { padding: 120px 24px 64px; }
     .nav { padding: 16px 22px; }
@@ -203,10 +231,20 @@
 </nav>
 
 <main class="wrap">
-  <div class="eyebrow">Founding Owners · Houston</div>
+  <div class="eyebrow">Founding Owners</div>
   <h1>Become a <em>Founding Owner.</em></h1>
   <p class="sub">The first installations are commissioned by application. Tell us a little about your home and your game, and we'll be in touch personally — not with a newsletter.</p>
   <p class="price">Investment-grade installations · Pricing on application</p>
+
+  <div class="apply-grid">
+  <aside class="next" aria-label="What happens next">
+    <div class="n-label">What happens next</div>
+    <ol>
+      <li><span class="n-num">01</span><div><div class="n-title">We read it</div><div class="n-body">Every application is read by hand, in confidence, usually within a day or two.</div></div></li>
+      <li><span class="n-num">02</span><div><div class="n-title">We call</div><div class="n-body">A conversation about the property, the yard, and your game.</div></div></li>
+      <li><span class="n-num">03</span><div><div class="n-title">We visit</div><div class="n-body">A site assessment, then a design for your green and the configurations you want on call.</div></div></li>
+    </ol>
+  </aside>
 
   <form id="accessForm"
         name="early-access"
@@ -242,10 +280,20 @@
       </div>
     </div>
 
+    <div class="field">
+      <span class="label" id="homeTypeLabel">Home type</span>
+      <div class="pills" role="radiogroup" aria-labelledby="homeTypeLabel">
+        <label class="pill"><input type="radio" name="homeType" value="Primary residence" required><span>Primary residence</span></label>
+        <label class="pill"><input type="radio" name="homeType" value="Second home"><span>Second home</span></label>
+        <label class="pill"><input type="radio" name="homeType" value="Estate"><span>Estate</span></label>
+        <label class="pill"><input type="radio" name="homeType" value="New build"><span>New build</span></label>
+      </div>
+    </div>
+
     <div class="row">
       <div class="field">
-        <label for="homeType">Home type</label>
-        <input id="homeType" name="homeType" type="text" placeholder="Primary residence, second home, estate…" required>
+        <label for="phone">Phone <span class="opt">— optional</span></label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 (713) …">
       </div>
       <div class="field">
         <label for="handicap">Golf handicap <span class="opt">— optional</span></label>
@@ -266,6 +314,7 @@
     <button type="submit" class="submit">Submit application <span class="ar"></span></button>
     <p class="form-error" id="formError" role="alert" hidden>That didn't go through. Please try once more in a moment.</p>
   </form>
+  </div>
 
   <div class="thanks">
     <h1>Received.<br><em>We'll be in touch.</em></h1>
@@ -277,7 +326,7 @@
 
 <div class="foot">
   <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
-  <span class="f-meta">Houston · By application · © TerraPutt</span>
+  <span class="f-meta">Houston, Texas · By application · © TerraPutt</span>
 </div>
 
 <script>

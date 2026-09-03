@@ -123,6 +123,17 @@
   }
   .nav .wordmark .p { color: var(--on-dark-mid); }
   .nav-right { display: flex; align-items: center; gap: 26px; }
+  .nav-links { display: flex; align-items: center; gap: 26px; margin-right: 6px; }
+  .nav-links a {
+    font-family: "Inter Tight", sans-serif;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; text-decoration: none; color: var(--on-dark-dim);
+    transition: color 0.3s ease;
+  }
+  .nav-links a:hover { color: var(--on-dark); }
+  body.nav-solid .nav-links a { color: var(--ink-dim); }
+  body.nav-solid .nav-links a:hover { color: var(--ink); }
+  section[id] { scroll-margin-top: 72px; }
   .nav-tag {
     font-family: "Inter Tight", sans-serif;
     font-size: 12px; font-weight: 500; letter-spacing: 0.22em;
@@ -321,6 +332,16 @@
     letter-spacing: -0.01em;
   }
   .cat-items span { color: var(--ink-faint); margin: 0 14px; font-family: "Inter Tight", sans-serif; }
+  /* rendered library: one still per topology, captured from the engine */
+  .cat-group { align-items: start; }
+  .topo-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+  .topo { margin: 0; }
+  .topo img { display: block; width: 100%; height: auto; border-radius: 3px; background: var(--paper-2); }
+  .topo figcaption {
+    margin-top: 12px;
+    font-family: "Fraunces", serif; font-weight: 300;
+    font-size: clamp(17px, 1.5vw, 20px); line-height: 1.3; color: var(--ink); letter-spacing: -0.01em;
+  }
 
   /* assurances */
   .assure { margin-top: 60px; border-top: 1px solid var(--border); }
@@ -340,7 +361,9 @@
   }
 
   /* installation steps */
-  .steps { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; }
+  .steps { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; border-top: 1px solid var(--border); }
+  .step { position: relative; padding-top: 30px; }
+  .step::before { content: ''; position: absolute; left: 0; top: -1px; width: 44px; height: 1px; background: var(--brass); }
   .step .s-num {
     font-family: "Fraunces", serif; font-style: italic; font-weight: 400;
     font-size: 30px; color: var(--brass-text); margin-bottom: 18px;
@@ -352,31 +375,24 @@
   }
   .step .s-body { font-size: 16px; line-height: 1.62; color: var(--ink-mid); }
 
-  /* vision pullquote */
-  .vision-body {
+  /* vision: a centred pull-quote, then the photograph given a full spread */
+  .band.vision { padding-bottom: clamp(56px, 7vw, 96px); }
+  .vision-wrap { text-align: center; }
+  .vision .eyebrow { justify-content: center; }
+  .vision-quote {
     font-family: "Fraunces", serif; font-weight: 300; font-optical-sizing: auto;
-    font-size: clamp(24px, 3.1vw, 40px); line-height: 1.3;
-    letter-spacing: -0.012em; color: var(--ink); margin: 0;
-    max-width: 28ch;
+    font-size: clamp(28px, 3.6vw, 48px); line-height: 1.22;
+    letter-spacing: -0.015em; color: var(--ink); margin: 0 auto 30px; max-width: 24ch;
   }
-  .vision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
-  .vision-sub { font-size: 17px; line-height: 1.64; color: var(--ink-mid); margin: 0; }
+  .vision-quote em { font-style: italic; font-weight: 400; color: var(--green); }
+  .vision-sub { font-size: 17px; line-height: 1.64; color: var(--ink-mid); margin: 0 auto; max-width: 58ch; }
   .vision-sub + .vision-sub { margin-top: 22px; }
-  /* vision band — golden-hour landscape kept warm + light: a heavy warm-stone wash
-     (lighter over the bright headline side, heavier over the planted side) so the
-     dark editorial text stays crisp and the site stays "warm and light" everywhere
-     but the dark hero/footer. */
-  .band.vision-band {
-    background-color: var(--paper-2);
-    background-image:
-      linear-gradient(90deg, rgba(243,239,230,0.80) 0%, rgba(240,235,225,0.84) 52%, rgba(243,239,230,0.90) 100%),
-      url("assets/vision-golden.jpg");
-    background-image:
-      linear-gradient(90deg, rgba(243,239,230,0.80) 0%, rgba(240,235,225,0.84) 52%, rgba(243,239,230,0.90) 100%),
-      image-set(url("assets/vision-golden.webp") type("image/webp"), url("assets/vision-golden.jpg") type("image/jpeg"));
-    background-size: cover, cover;
-    background-position: center, center 60%;
-    background-repeat: no-repeat;
+  .spread { margin: clamp(56px, 8vw, 110px) 0 0; width: 100%; }
+  .spread img { display: block; width: 100%; height: 70vh; min-height: 380px; max-height: 760px; object-fit: cover; object-position: center 60%; }
+  .spread figcaption {
+    font-family: "Inter Tight", sans-serif; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
+    text-align: center; margin-top: 18px;
   }
 
   /* closing CTA — dusk landscape under a deep-green scrim (the photo is felt, not shouted) */
@@ -450,9 +466,16 @@
 
   /* ===================== RESPONSIVE ===================== */
   @media (max-width: 900px) {
-    .vision-grid { grid-template-columns: 1fr; gap: 30px; }
-    .steps { grid-template-columns: 1fr; gap: 36px; }
-    .cat-group { grid-template-columns: 1fr; gap: 10px; }
+    .nav-links { display: none; }
+    .steps { grid-template-columns: 1fr; gap: 0; border-top: none; }
+    .step { padding: 26px 0; border-top: 1px solid var(--border); }
+    .step::before { display: none; }
+    .cat-group { grid-template-columns: 1fr; gap: 16px; }
+    .topo-row { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  }
+  @media (max-width: 600px) {
+    .topo-row { grid-template-columns: 1fr 1fr; gap: 14px; }
+    .spread img { height: 56vh; min-height: 300px; }
   }
   /* Portrait: copy in the upper half over sky, the green below it */
   @media (max-aspect-ratio: 92/100) {
@@ -485,6 +508,11 @@
 <nav class="nav">
   <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
   <div class="nav-right">
+    <div class="nav-links">
+      <a href="#what">What it does</a>
+      <a href="#outside">Outside</a>
+      <a href="#installation">Installation</a>
+    </div>
     <a class="nav-cta" href="/apply">Apply</a>
   </div>
 </nav>
@@ -515,7 +543,7 @@
 </header>
 
 <!-- WHAT IT DOES -->
-<section class="band">
+<section class="band" id="what">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">What it does</div>
@@ -526,26 +554,43 @@
     <div class="catalog">
       <div class="cat-group">
         <div class="cat-label">Fundamentals</div>
-        <div class="cat-items">Flat<span>/</span>Uphill<span>/</span>Downhill<span>/</span>Sidehill Break</div>
+        <div class="topo-row">
+          <figure class="topo"><picture><source srcset="assets/topo/flat.webp" type="image/webp"><img src="assets/topo/flat.jpg" alt="Flat" width="640" height="480" loading="lazy"></picture><figcaption>Flat</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/uphill.webp" type="image/webp"><img src="assets/topo/uphill.jpg" alt="Uphill" width="640" height="480" loading="lazy"></picture><figcaption>Uphill</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/downhill.webp" type="image/webp"><img src="assets/topo/downhill.jpg" alt="Downhill" width="640" height="480" loading="lazy"></picture><figcaption>Downhill</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/sidehill.webp" type="image/webp"><img src="assets/topo/sidehill.jpg" alt="Sidehill Break" width="640" height="480" loading="lazy"></picture><figcaption>Sidehill Break</figcaption></figure>
+        </div>
       </div>
       <div class="cat-group">
         <div class="cat-label">Features</div>
-        <div class="cat-items">Backstop<span>/</span>Center Bowl<span>/</span>Double Plateau</div>
+        <div class="topo-row">
+          <figure class="topo"><picture><source srcset="assets/topo/backstop.webp" type="image/webp"><img src="assets/topo/backstop.jpg" alt="Backstop" width="640" height="480" loading="lazy"></picture><figcaption>Backstop</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/bowl.webp" type="image/webp"><img src="assets/topo/bowl.jpg" alt="Center Bowl" width="640" height="480" loading="lazy"></picture><figcaption>Center Bowl</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/plateau.webp" type="image/webp"><img src="assets/topo/plateau.jpg" alt="Double Plateau" width="640" height="480" loading="lazy"></picture><figcaption>Double Plateau</figcaption></figure>
+        </div>
       </div>
       <div class="cat-group">
         <div class="cat-label">Signatures</div>
-        <div class="cat-items">Golden Bell<span>/</span>Pinehurst Crown</div>
+        <div class="topo-row">
+          <figure class="topo"><picture><source srcset="assets/topo/goldenbell.webp" type="image/webp"><img src="assets/topo/goldenbell.jpg" alt="Golden Bell" width="640" height="480" loading="lazy"></picture><figcaption>Golden Bell</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/pinehurst.webp" type="image/webp"><img src="assets/topo/pinehurst.jpg" alt="Pinehurst Crown" width="640" height="480" loading="lazy"></picture><figcaption>Pinehurst Crown</figcaption></figure>
+        </div>
       </div>
       <div class="cat-group">
         <div class="cat-label">Follies</div>
-        <div class="cat-items">Whirlpool<span>/</span>The Crater<span>/</span>Serpentine<span>/</span>Three Terraces</div>
+        <div class="topo-row">
+          <figure class="topo"><picture><source srcset="assets/topo/whirlpool.webp" type="image/webp"><img src="assets/topo/whirlpool.jpg" alt="Whirlpool" width="640" height="480" loading="lazy"></picture><figcaption>Whirlpool</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/crater.webp" type="image/webp"><img src="assets/topo/crater.jpg" alt="The Crater" width="640" height="480" loading="lazy"></picture><figcaption>The Crater</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/serpentine.webp" type="image/webp"><img src="assets/topo/serpentine.jpg" alt="Serpentine" width="640" height="480" loading="lazy"></picture><figcaption>Serpentine</figcaption></figure>
+          <figure class="topo"><picture><source srcset="assets/topo/terraces.webp" type="image/webp"><img src="assets/topo/terraces.jpg" alt="Three Terraces" width="640" height="480" loading="lazy"></picture><figcaption>Three Terraces</figcaption></figure>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ASSURANCES (specs reframed) -->
-<section class="band alt">
+<section class="band alt" id="outside">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">Built for outside</div>
@@ -579,7 +624,7 @@
 </section>
 
 <!-- INSTALLATION PATHWAY -->
-<section class="band">
+<section class="band" id="installation">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">What an installation looks like</div>
@@ -608,17 +653,20 @@
 </section>
 
 <!-- VISION -->
-<section class="band alt vision-band">
-  <div class="wrap">
+<section class="band alt vision" id="why">
+  <div class="wrap vision-wrap">
     <div class="eyebrow">Why this exists</div>
-    <div class="vision-grid">
-      <h2 class="vision-body serif">A green that changes its mind — and a category that follows.</h2>
-      <div>
-        <p class="vision-sub">Every other serious system in a home — light, climate, sound, water — became something you could shape on command. The ground never did. It stayed poured, planted, and fixed.</p>
-        <p class="vision-sub">TerraPutt is the first step past that: an outdoor surface that reconfigures on demand. A putting green now, a wider language of responsive landscape after it. We're building the first ones by hand, for a small number of homes, in Houston.</p>
-      </div>
-    </div>
+    <h2 class="vision-quote">A green that changes its mind — <em>and a category that follows.</em></h2>
+    <p class="vision-sub">Every other serious system in a home — light, climate, sound, water — became something you could shape on command. The ground never did. It stayed poured, planted, and fixed.</p>
+    <p class="vision-sub">TerraPutt is the first step past that: an outdoor surface that reconfigures on demand. A putting green now, a wider language of responsive landscape after it. We're building the first ones by hand, for a small number of homes.</p>
   </div>
+  <figure class="spread">
+    <picture>
+      <source srcset="assets/vision-golden.webp" type="image/webp">
+      <img src="assets/vision-golden.jpg" alt="A garden at golden hour: stone terrace, still water, a wall in low sun" loading="lazy">
+    </picture>
+    <figcaption>Golden hour. The room the surface lives in.</figcaption>
+  </figure>
 </section>
 
 <!-- CLOSING CTA -->
@@ -626,7 +674,7 @@
   <div class="wrap">
     <div class="eyebrow">Founding Owners</div>
     <h2>Become a <em>Founding Owner.</em></h2>
-    <p>The first installations are commissioned by application — Houston area. Tell us about your home and your game, and we'll be in touch personally, in confidence.</p>
+    <p>The first installations are commissioned by application. Tell us about your home and your game, and we'll be in touch personally, in confidence.</p>
     <ul class="fo-terms">
       <li>The first commissioned installations.</li>
       <li>A direct line to the design team.</li>
@@ -641,7 +689,7 @@
 <footer class="foot">
   <div class="wrap">
     <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
-    <span class="f-meta">Houston · By application · © TerraPutt</span>
+    <span class="f-meta">Houston, Texas · By application · © TerraPutt</span>
     <span class="f-credit">Garden: <a href="https://superspl.at/scene/47ff7615" rel="noopener">“Mip-NeRF 360 Flowers”</a> reconstructed by Seeget3D, <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noopener">CC BY 4.0</a>, modified.</span>
   </div>
 </footer>
