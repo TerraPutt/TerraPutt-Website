@@ -1404,7 +1404,7 @@ function buildEnvironment() {
   const HN = 192;
   for (let i = 0; i < HN; i++) {
     const th = (i / HN) * Math.PI * 2;
-    const r = R_BASE * edgeShape(th) * 0.992 + 0.34 + 0.004;   // coping outer edge
+    const r = R_BASE * edgeShape(th) * 0.992 + 0.24 + 0.004;   // coping outer edge (matches WIDTH below)
     // Shape space is (x, y); the plane is rotated -90° about X so shape y -> world -z.
     // edgeShape is defined in the green's local frame where local y = -world z, so shape y = local y.
     const px = Math.cos(th) * r, py = Math.sin(th) * r;
@@ -1434,7 +1434,7 @@ function buildEnvironment() {
 
   /* Stone coping: a low limestone edge that follows the green's
      organic outline, so the surface reads as built into the garden. */
-  const N = 288, LIP_Y = 0.024, BASE_Y = -0.035, WIDTH = 0.34;
+  const N = 288, LIP_Y = 0.024, BASE_Y = -0.035, WIDTH = 0.24;
   const pos = [];
   for (let i = 0; i <= N; i++) {
     const th = (i / N) * Math.PI * 2;
@@ -1451,8 +1451,8 @@ function buildEnvironment() {
   for (let i = 0; i < N; i++) {
     const a = i * 4, b = (i + 1) * 4;
     for (let k = 0; k < 3; k++) {
-      idx.push(a + k, b + k, a + k + 1);
-      idx.push(b + k, b + k + 1, a + k + 1);
+      idx.push(a + k, a + k + 1, b + k);
+      idx.push(b + k, a + k + 1, b + k + 1);
     }
   }
   const copingGeom = new THREE.BufferGeometry();
@@ -1460,8 +1460,8 @@ function buildEnvironment() {
   copingGeom.setIndex(idx);
   copingGeom.computeVertexNormals();
   const coping = new THREE.Mesh(copingGeom, new THREE.MeshStandardMaterial({
-    color: 0xc2b49b, roughness: 0.88, metalness: 0.0,   // warm limestone
-    emissive: 0x4a4236, emissiveIntensity: 0.55            // the key rakes from behind, so lift the shadow side to a readable mid-tone
+    color: 0xa89c84, roughness: 0.9, metalness: 0.0,    // warm limestone, kept quiet: the whole ring is visible now
+    emissive: 0x4a4236, emissiveIntensity: 0.35            // the key rakes from behind, so lift the shadow side to a readable mid-tone
   }));
   coping.castShadow = true;
   coping.receiveShadow = true;
