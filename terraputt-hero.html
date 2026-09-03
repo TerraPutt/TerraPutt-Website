@@ -536,6 +536,10 @@
         <div class="cat-label">Signatures</div>
         <div class="cat-items">Golden Bell<span>/</span>Pinehurst Crown</div>
       </div>
+      <div class="cat-group">
+        <div class="cat-label">Follies</div>
+        <div class="cat-items">Whirlpool<span>/</span>The Crater<span>/</span>Serpentine<span>/</span>Three Terraces</div>
+      </div>
     </div>
   </div>
 </section>
@@ -771,10 +775,13 @@ const LOW_POWER = Math.min(window.innerWidth, window.innerHeight) < 768
    to seed the relief ripple — the shimmer radiates from there
    rather than from the origin, so each surface "announces" itself.
 -------------------------------------------------------------------- */
-/* Curated 9-topology library, grouped into three tiers:
+/* Curated 13-topology library, grouped into four tiers:
    - Fundamentals: the classic pro drill set (flat, up, down, sidehill)
    - Features: named green architectures
-   - Signatures: replicas of iconic tour greens — the emotional hook */
+   - Signatures: replicas of iconic tour greens — the emotional hook
+   - Follies: garden follies for the surface — the hard, playful shots
+     (a spiral trough, a crater, a winding channel, stepped terraces).
+   Local frame: the ball starts near y = -4.2, the cup sits at (0, 3.4). */
 const topologies = [
   // ---------------- Fundamentals ----------------
   { id: 'flat',       name: 'Flat',             meta: 'Level · baseline',          group: 'Fundamentals', epi: [0, 0],      fn: () => 0 },
@@ -796,7 +803,30 @@ const topologies = [
   // Augusta 12th "Golden Bell": aggressive back-to-front + front false-front lip
   { id: 'goldenbell', name: 'Golden Bell',      meta: 'Augusta 12 · false front',  group: 'Signatures',   epi: [0, -2.8],   fn: (x,y) => 0.055 * y + 0.050 * Math.exp(-(x*x*0.3 + Math.pow(y + 2.8, 2)*2.2)) },
   // Pinehurst crown: domed green that repels the ball in every direction
-  { id: 'pinehurst',  name: 'Pinehurst Crown',  meta: 'Crowned · rejects all',     group: 'Signatures',   epi: [0, 0],      fn: (x,y) => 0.22 * Math.exp(-(x*x + y*y) / 8) }
+  { id: 'pinehurst',  name: 'Pinehurst Crown',  meta: 'Crowned · rejects all',     group: 'Signatures',   epi: [0, 0],      fn: (x,y) => 0.22 * Math.exp(-(x*x + y*y) / 8) },
+  // ---------------- Follies ----------------
+  // Whirlpool: a single-arm spiral trough winding into the cup, over a shallow gathering dish.
+  // The ball rides the groove round and in; it only drops if the pace is right.
+  { id: 'whirlpool',  name: 'Whirlpool',        meta: 'Spiral trough · gathers late', group: 'Follies',   epi: [0, 3.4],
+    fn: (x,y) => { const dx = x, dy = y - 3.4, r = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
+                   const arm = 1 - Math.exp(-r * r / 0.8);   // the spiral fades out at the cup so the surface stays smooth there
+                   return (0.15 * arm * Math.cos(2 * Math.PI * r / 3.4 - th) - 0.16) * Math.exp(-r * r / 16); } },
+  // The Crater: a long gentle ramp up to a rim, then a dished top with the cup on its floor.
+  // Short and the ball rolls back down the flank; long and it clears the far lip.
+  // The rim stays within the terraces' height band; the drop comes from dishing the floor below neutral.
+  { id: 'crater',     name: 'The Crater',       meta: 'Ramp, rim, then the drop',  group: 'Follies',      epi: [0, 3.4],
+    fn: (x,y) => { const r = Math.sqrt(x * x + Math.pow(y - 3.4, 2) + 0.36);   // softened radius: no cusp at the cup
+                   const w = r > 2.3 ? 1.7 : 0.9;
+                   return 0.26 * Math.exp(-Math.pow(r - 2.3, 2) / (2 * w * w)) - 0.16 * Math.exp(-r * r / 1.62); } },
+  // Serpentine: a winding channel with soft shoulders, two bends between the ball and the cup.
+  { id: 'serpentine', name: 'Serpentine',       meta: 'Two bends to the cup',      group: 'Follies',      epi: [1.4, -2.0],
+    fn: (x,y) => { const xc = 1.3 * Math.sin(Math.PI * (y - 3.4) / 4.4); const d = x - xc;
+                   const env = 1 / (1 + Math.exp((Math.abs(y) - 5.0) * 4));   // the channel ends before the collar
+                   return env * (-0.30 * Math.exp(-d * d / 1.8) + 0.12 * Math.exp(-d * d / 6.0)); } },
+  // Three Terraces: the front tier sits high, two soft risers step down to the cup's level.
+  { id: 'terraces',   name: 'Three Terraces',   meta: 'Stepped · two risers down', group: 'Follies',      epi: [0, -0.2],
+    fn: (x,y) => { const s1 = 1 / (1 + Math.exp(-(y + 1.6) * 4.4)), s2 = 1 / (1 + Math.exp(-(y - 1.2) * 4.4));
+                   return 0.26 - 0.26 * s1 - 0.26 * s2; } }
 ];
 
 /* ---------- State ---------- */
@@ -1866,7 +1896,7 @@ document.addEventListener('visibilitychange', resumeIfNeeded);
    Looping reshape demo — the motion asset. Cycles the surface through
    the library, holding each shape long enough to read.
    ================================================================= */
-const DEMO_CYCLE = ['backstop', 'goldenbell', 'sidehill', 'bowl', 'plateau', 'pinehurst', 'uphill', 'downhill', 'flat'];
+const DEMO_CYCLE = ['backstop', 'whirlpool', 'goldenbell', 'sidehill', 'crater', 'bowl', 'plateau', 'serpentine', 'pinehurst', 'terraces', 'uphill', 'downhill', 'flat'];
 const DEMO_INTERVAL = LOW_POWER ? 10000 : 8000;   // ~4.7 s reshape + a hold long enough to read
 let demoIdx = 0;
 function stepDemo() {
