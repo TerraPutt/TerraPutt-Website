@@ -430,6 +430,8 @@
   .foot .wordmark { font-family: "Fraunces", serif; font-weight: 500; font-size: 18px; color: var(--on-dark); text-decoration: none; }
   .foot .wordmark .p { color: var(--on-dark-mid); }
   .foot .f-meta { font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; }
+  .foot .f-credit { flex-basis: 100%; font-size: 11px; opacity: 0.55; margin-top: 10px; }
+  .foot .f-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 
   /* ===================== FOCUS + MOTION ===================== */
@@ -444,6 +446,7 @@
     .nav, .nav *, .btn-primary, .nav-cta { transition: none !important; }
     .btn-primary:hover, .nav-cta:hover { transform: none; }
   }
+
 
   /* ===================== RESPONSIVE ===================== */
   @media (max-width: 900px) {
@@ -635,6 +638,7 @@
   <div class="wrap">
     <a class="wordmark" href="/"><span class="t">Terra</span><span class="p">Putt</span></a>
     <span class="f-meta">Houston · By application · © TerraPutt</span>
+    <span class="f-credit">Garden: <a href="https://superspl.at/scene/47ff7615" rel="noopener">“Mip-NeRF 360 Flowers”</a> reconstructed by Seeget3D, <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noopener">CC BY 4.0</a>, modified.</span>
   </div>
 </footer>
 
@@ -651,8 +655,103 @@
     onScroll();
   })();
 </script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+    "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+  }
+}
+</script>
 <script type="module">
+import * as THREE from 'three';
+import { SparkRenderer, SplatMesh, SplatEdit, SplatEditSdf, SplatEditSdfType, SplatEditRgbaBlendMode } from '@sparkjsdev/spark';
+
+/* =================================================================
+   TerraPutt — garden installation render. The hero engine on three.js 0.180
+   with a Gaussian splat garden rendered by Spark; the green is built geometry.
+   ================================================================= */
+const POC = Object.assign({
+  url: null,                            // resolved at load: assets/garden/flowers(.sog), or flowers-lite on low-power devices
+  // Flowers scene: COLMAP frame is Y-down with the ground ~0.15 below the origin and the bed at the origin.
+  // Flip it upright (180 about X), level the ground (~5 deg), scale toward metres, and drop the ground to lawn level.
+  // Measured from the point cloud: ground normal within 1 degree of -Y, ground 0.073 below the origin,
+  // metric-plausible at 4x. Yaw -25 puts the oak behind the pin with open lawn on the headline side.
+  // Scale 5.5 makes the oak read as a mature tree; the green is scaled 1.3x so it still covers the bed.
+  pos: [0, -0.43, 0], rotDeg: [180.3, -25, -0.8], scale: 5.5,
+  // ellipsoid where the splat is hidden: the green's footprint (long axis along z) plus the bed's height
+  cut: { x: 0, y: 0.4, z: 0.6, rx: 8.6, ry: 5.6, rz: 11.2, soft: 0.5 },   // the bed plus the apron width
+  portraitYaw: -50,                   // extra splat yaw (deg) applied only in the portrait pose: soft branches over the copy
+  hideEnv: false, showSky: true, showLawn: true, lawnY: -0.10, lawnTint: 'a09a70',
+  lawnBase: [34, 43, 21],   // sunlit lawn matched to the capture's lit grass; the dapple supplies the shade
+  apronWidth: 2.6, apronBase: [38, 48, 24],   // mown apron ring around the coping, covers the hole where the bed was           // daylight lawn texture base (rgb) so our plane matches the captured grass in the ring
+  fogOff: false, fogColor: 'b9d3ea', fogNear: 45, fogFar: 190,   // haze on our lawn plane toward the horizon (splats ignore fog)
+  daylight: false, sunny: true, orbit: false, hideCopy: false,
+  keyI: 2.4, hemiI: 0.9, ambI: 0.12, exposure: 1.02,
+  // extra world-space deletes (up to 8): ellipsoid {x,y,z,rx,ry,rz}, sphere, or box/plane with a quaternion q; tint:'rrggbb' paints instead of deleting.
+  // The default box is a view-aligned slab through the gap between the cedar and the oak (30-64 m out) that removes the capture's stray leaf clumps there.
+  extraCuts: [{"type":"box","x":-26.99,"y":5.46,"z":-16.8,"rx":3.4,"ry":6.5,"rz":34,"q":[-0.0326,0.2945,0.0101,0.955],"landscapeOnly":true}],
+  sunPos: [6, 7.5, -4],
+  dapple: 0.34, dappleBig: 0.16, dappleFreq: 0.42, dappleStretch: 1.7,   // sun through leaves on the lawn and apron: cell darkness, patch darkness, cells per metre, elongation along the sun
+  dappleGreen: 0.14, dappleGreenBig: 0.06,
+  copingColor: 0x9a8f78, copingLift: 0.08, copingWidth: 0.24,   // limestone tone, emissive lift, edge width in m (reload to apply)                              // the same on the putting surface, gentler               // the capture's sun: from camera-right and behind, so the oak's shadow falls left and toward us
+  turfTint: 'd6c288',  // multiplies the turf's vertex colours: yellow-green, a shade greener than the lawn
+  stripeGain: 0.12, grain: 0.06,      // turf shader: stripe contrast and fine grain
+  skyCut: 48,                         // splats farther than this (world m) from the origin are hidden: the capture's sky
+  skyY: 19, skyYInvert: true,         // splats above this height (world m) are hidden too; 0 = off
+  nearCutZ: 10.4,                     // splats in front of this z (toward the camera) are hidden: the capture is weakest where the photographer stood
+  grade: [1.14, 1.07, 0.92],          // global multiply on the splat's colour: warmer, brighter, sunnier
+  greenShadow: false,                 // a flush green casts no shadow onto the lawn; the pin still does
+  greenScale: 1.3,                    // scales the green, coping, hole and camera distance (reload to apply)
+  daySky: true                        // repaint the sky dome with clear daytime blues (reload to apply)
+});
+const envObjects = {};
+const lightRefs = {};
+const DAPPLE_GLSL = `
+uniform float uDapple; uniform float uDappleBig; uniform float uDappleFreq; uniform float uDappleStretch; uniform float uDappleAng;
+float dpHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float dpNoise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(dpHash(i), dpHash(i + vec2(1.0, 0.0)), f.x), mix(dpHash(i + vec2(0.0, 1.0)), dpHash(i + vec2(1.0, 1.0)), f.x), f.y); }
+vec3 dappleShade(vec2 w) {
+  float ca = cos(uDappleAng), sa = sin(uDappleAng);
+  vec2 q = vec2(ca * w.x + sa * w.y, -sa * w.x + ca * w.y);   // q.x runs along the sun's shadow direction
+  q.x /= uDappleStretch;
+  float n = dpNoise(q * uDappleFreq) * 0.62 + dpNoise(q * uDappleFreq * 2.3 + 19.3) * 0.38;
+  float sun = smoothstep(0.34, 0.74, n);
+  float big = dpNoise(q * uDappleFreq * 0.11 + 3.1);
+  vec3 shade = vec3(1.0 - uDapple, 1.0 - uDapple * 0.72, 1.0 - uDapple * 0.80);   // shade is greener and bluer than sun
+  vec3 bigPatch = mix(vec3(1.0 - uDappleBig, 1.0 - uDappleBig * 0.8, 1.0 - uDappleBig * 0.85), vec3(1.0 + uDappleBig * 0.5), big);
+  return mix(shade, vec3(1.0), sun) * bigPatch;
+}`;
+function dappleUniforms(amount, big) {
+  const sx = -POC.sunPos[0], sz = -POC.sunPos[2];   // the shadow direction on the ground
+  return { uDapple: { value: amount }, uDappleBig: { value: big }, uDappleFreq: { value: POC.dappleFreq }, uDappleStretch: { value: POC.dappleStretch }, uDappleAng: { value: Math.atan2(sz, sx) } };
+}
+function setDappleUniforms(shader, amount, big) {
+  if (!shader || !shader.uniforms.uDapple) return;
+  const u = dappleUniforms(amount, big);
+  for (const k in u) shader.uniforms[k].value = u[k].value;
+}
+function addDapple(mat, amount, big) {
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, dappleUniforms(amount, big));
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+varying vec2 vDappleW;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vDappleW = (modelMatrix * vec4(transformed, 1.0)).xz;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec2 vDappleW;` + DAPPLE_GLSL)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+diffuseColor.rgb *= dappleShade(vDappleW);`);
+    mat.userData.shader = shader;
+  };
+  mat.customProgramCacheKey = () => 'dapple-' + amount + '-' + big;
+}
+let splatMesh = null, splatEdit = null, cutSdf = null, skyEdit = null, skySdf = null, skyPlaneEdit = null, skyPlaneSdf = null, nearEdit = null, nearSdf = null, gradeEdit = null, gradeSdf = null, extraEdit = null, extraSdfs = [], orbitControls = null, spark = null;
+
 /* =================================================================
    TerraPutt — dusk installation render.
    The surface reshapes itself on a loop; the camera rests. Everything
@@ -731,8 +830,8 @@ let flag, flagGroup, ballPos, ballMesh;
 let holeRim, holeInner, holePosVec;
 
 const SEGMENTS = LOW_POWER ? 120 : 200;   // mesh resolution — halved on phones and low-core devices
-const SIZE = 14;
-const R_BASE = 4.4;
+const SIZE = 14 * (POC.greenScale || 1);   // the mesh plane must grow with the radius or the long axis is truncated
+const R_BASE = 4.4 * (POC.greenScale || 1);
 
 /* Organic, elongated footprint — longer along local-Y axis (which
    becomes world front-back after the mesh's -PI/2 X rotation), so
@@ -802,7 +901,9 @@ function init() {
   camera = new THREE.PerspectiveCamera(28, w/h, 0.1, 400);
   applyCameraPose(w / h);
 
+  THREE.ColorManagement.enabled = false;
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_POWER ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
@@ -810,6 +911,8 @@ function init() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;   // a touch richer for the dusk grade
   host.appendChild(renderer.domElement);
+  spark = new SparkRenderer({ renderer });
+  scene.add(spark);
 
   /* ---------- Environment: sky, ground, stone coping, tree line ---------- */
   buildEnvironment();
@@ -854,8 +957,8 @@ function init() {
 
   const cMowLight = new THREE.Color(0x2f6631); // bent-grass green, lit band
   const cMowDark  = new THREE.Color(0x1f4526); // shadow band
-  const cCollar   = new THREE.Color(0x3b5a2c); // collar: longer grass, a little yellower
-  const cCollarDk = new THREE.Color(0x2a4222);
+  const cCollar   = new THREE.Color(0x30492a); // collar: longer grass, duller than the surface
+  const cCollarDk = new THREE.Color(0x233620);
   const cFringe   = new THREE.Color(0x1c2818); // fringe: dark turf, never black
 
   for (let i = 0; i < pos.count; i++) {
@@ -1034,8 +1137,10 @@ function init() {
     shader.uniforms.uKeyColor = { value: new THREE.Color(0xfff4d8) }; // neutral warm white — no yellow bias
     shader.uniforms.uStripeDir = { value: new THREE.Vector3(0.85, 0, 0.22).normalize() };
     shader.uniforms.uStripePeriod = { value: 2.4 };
-    shader.uniforms.uStripeGain = { value: 0.085 };
+    shader.uniforms.uStripeGain = { value: POC.stripeGain };
     shader.uniforms.uSheenGain = { value: 0.07 };
+    shader.uniforms.uGrain = { value: POC.grain };
+    Object.assign(shader.uniforms, dappleUniforms(POC.dappleGreen, POC.dappleGreenBig));
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -1059,7 +1164,9 @@ function init() {
        uniform vec3 uStripeDir;
        uniform float uStripePeriod;
        uniform float uStripeGain;
-       uniform float uSheenGain;`
+       uniform float uSheenGain;
+       uniform float uGrain;
+${DAPPLE_GLSL}`
     ).replace(
       '#include <dithering_fragment>',
       `
@@ -1087,7 +1194,9 @@ function init() {
        float lean2 = clamp(sin(phase2) * 7.0, -1.0, 1.0);
        float vAlong2 = dot(Vn, mowT2) * vLen;
        float stripeShade = 1.0 - uStripeGain * lean * vAlong - uStripeGain * 0.35 * lean2 * vAlong2;
-       gl_FragColor.rgb *= stripeShade;
+       float grainN = fract(sin(dot(floor(vWorldPosAniso.xz * 220.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+       float grainM = fract(sin(dot(floor(vWorldPosAniso.xz * 60.0) + 7.0, vec2(39.3468, 11.1352))) * 24634.6345) - 0.5;
+       gl_FragColor.rgb *= stripeShade * (1.0 + uGrain * (grainN * 0.7 + grainM * 0.5)) * dappleShade(vWorldPosAniso.xz);
 
        // ---- Backlit sheen ----
        // Low, broad lobe from the key light; bent grass at dusk has a velvet
@@ -1113,7 +1222,7 @@ function init() {
      the stripe shading, sheen and fine normal grain carry the turf texture. */
 
   /* ---------- Hole + rim ---------- */
-  holePosVec = new THREE.Vector3(0, 0, -2.6);
+  holePosVec = new THREE.Vector3(0, 0, -2.6 * (POC.greenScale || 1));
   // The cut edge: a thin dark ring of soil where the turf stops
   holeRim = new THREE.Mesh(
     new THREE.RingGeometry(0.108, 0.128, 48),
@@ -1186,7 +1295,7 @@ function init() {
   /* Ball — lifted size + faint self-lift so it reads at a glance on
      busy turf. A tight contact-shadow disc anchors it to the green
      since the global shadow map softens too much at this scale. */
-  ballPos = new THREE.Vector3(-1.4, 0.04, 3.2);
+  ballPos = new THREE.Vector3(-1.4 * (POC.greenScale || 1), 0.04, 3.2 * (POC.greenScale || 1));
   ballMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.060, 24, 18),
     new THREE.MeshStandardMaterial({
@@ -1214,7 +1323,7 @@ function init() {
     new THREE.MeshBasicMaterial({ map: ballShadowTex, transparent: true, depthWrite: false })
   );
   window.__ballShadow.rotation.x = -Math.PI / 2;
-  window.__ballShadow.position.set(ballPos.x + 0.025, 0.021, ballPos.z + 0.01);
+  window.__ballShadow.position.set(ballPos.x - 0.025, 0.021, ballPos.z + 0.012);
   window.__ballShadow.renderOrder = 5;
   scene.add(window.__ballShadow);
 
@@ -1225,7 +1334,9 @@ function init() {
   // far face in key light, which is what makes mounds/tiers read as
   // 3D at a glance instead of as subtle tonal shifts.
   // Elevation: atan(3.6 / sqrt(7^2 + 6^2)) ≈ 21°
-  const key = new THREE.DirectionalLight(0xffd89c, 2.7);
+  const LP = Math.PI;
+  const key = new THREE.DirectionalLight(0xffd89c, 2.7 * LP);
+  lightRefs.key = key;
   key.position.set(-7, 3.6, -6);
   key.target.position.set(0, 0, 0);
   scene.add(key.target);
@@ -1245,21 +1356,23 @@ function init() {
   // behind the green, the camera-facing surfaces (flag, front of ball,
   // near-side of mounds) need a soft wrap-around fill so they don't
   // drop into pure silhouette.
-  const fill = new THREE.DirectionalLight(0x6a8cc8, 0.62);
+  const fill = new THREE.DirectionalLight(0x6a8cc8, 0.62 * LP);
+  lightRefs.fill = fill;
   fill.position.set(5, 4.5, 7);
   scene.add(fill);
 
   // Back rim for silhouette — dimmed (0.55 → 0.30) now that the key
   // is itself behind the scene; the rim was mostly painting the back
   // half of the floor and headline area brighter than desired.
-  const rim = new THREE.DirectionalLight(0xffffff, 0.30);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.30 * LP);
+  lightRefs.rim = rim;
   rim.position.set(2, 3, -9);
   scene.add(rim);
 
   // Ambient/hemi dropped — these were the main culprits lifting the
   // shadow side into a middle-grey and washing out topology relief.
-  scene.add(new THREE.AmbientLight(0x342a22, 0.30));               // warm dusk bounce
-  scene.add(new THREE.HemisphereLight(0x6f97cf, 0x140e08, 0.44));   // blue sky fill over warm ground  // cool sky over warm ground
+  const amb = new THREE.AmbientLight(0x342a22, 0.30 * LP); scene.add(amb); lightRefs.amb = amb;               // warm dusk bounce
+  const hemi = new THREE.HemisphereLight(0x6f97cf, 0x140e08, 0.44 * LP); scene.add(hemi); lightRefs.hemi = hemi;  // cool sky over warm ground
 
   window.addEventListener('resize', onResize);
 }
@@ -1278,6 +1391,16 @@ function buildEnvironment() {
   const sky = sg.createLinearGradient(0, 0, 0, 1024);
   // The camera only ever sees ~14 degrees above the horizon, so the blue has
   // to live right there: azure just above the line, deepening quickly upward.
+  if (POC.daySky) {
+  sky.addColorStop(0.00, '#1a5fbe');
+  sky.addColorStop(0.25, '#2f7fd6');
+  sky.addColorStop(0.40, '#5aa3e6');
+  sky.addColorStop(0.47, '#8ec3ee');
+  sky.addColorStop(0.495, '#c8e2f5');
+  sky.addColorStop(0.501, '#8fb4d4');
+  sky.addColorStop(0.52, '#1d242b');
+  sky.addColorStop(1.00, '#0c0b0a');
+  } else {
   sky.addColorStop(0.00, '#061c4e');   // zenith: deep cobalt
   sky.addColorStop(0.20, '#0d3f96');
   sky.addColorStop(0.34, '#1660bd');
@@ -1291,6 +1414,7 @@ function buildEnvironment() {
   sky.addColorStop(0.52, '#1d242b');
   sky.addColorStop(0.60, '#0d0e10');
   sky.addColorStop(1.00, '#0c0b0a');
+  }
   sg.fillStyle = sky; sg.fillRect(0, 0, 4, 1024);
   const skyTex = new THREE.CanvasTexture(skyCanvas);
   const skyDome = new THREE.Mesh(
@@ -1300,6 +1424,7 @@ function buildEnvironment() {
   skyDome.position.y = 2.4;
   skyDome.renderOrder = -10;
   scene.add(skyDome);
+  envObjects.skyDome = skyDome;
 
   let sseed = 23;
   const srnd = () => { sseed = (sseed * 9301 + 49297) % 233280; return sseed / 233280; };
@@ -1352,6 +1477,7 @@ function buildEnvironment() {
   cirrus.position.y = 2.4 + 43 - 1.5;
   cirrus.renderOrder = -9;
   scene.add(cirrus);
+  envObjects.cirrus = cirrus;
 
   /* A few stars in the darker upper sky: points, additive, not fogged. */
   const STAR_N = 420;
@@ -1376,6 +1502,7 @@ function buildEnvironment() {
   }));
   stars.renderOrder = -9;
   scene.add(stars);
+  envObjects.stars = stars;
 
   /* Ground: a warm, dark lawn with a little tonal noise so it reads
      as a surface rather than a void. Sits just below the turf edge. */
@@ -1386,9 +1513,9 @@ function buildEnvironment() {
   for (let i = 0; i < 512 * 512; i++) {
     const n = (Math.random() - 0.5) * 22;
     const m = (Math.random() - 0.5) * 8;
-    gImg.data[i*4]     = Math.max(0, Math.min(255, 22 + n + m));
-    gImg.data[i*4 + 1] = Math.max(0, Math.min(255, 34 + n));
-    gImg.data[i*4 + 2] = Math.max(0, Math.min(255, 17 + n - m));
+    gImg.data[i*4]     = Math.max(0, Math.min(255, POC.lawnBase[0] + n + m));
+    gImg.data[i*4 + 1] = Math.max(0, Math.min(255, POC.lawnBase[1] + n));
+    gImg.data[i*4 + 2] = Math.max(0, Math.min(255, POC.lawnBase[2] + n - m));
     gImg.data[i*4 + 3] = 255;
   }
   gctx.putImageData(gImg, 0, 0);
@@ -1417,12 +1544,13 @@ function buildEnvironment() {
   groundTex.repeat.set(0.075, 0.075);
   groundFloor = new THREE.Mesh(
     lawnGeom,
-    new THREE.MeshStandardMaterial({ map: groundTex, color: 0x3a5034, roughness: 1.0, metalness: 0.0 })
+    (() => { const m = new THREE.MeshStandardMaterial({ map: groundTex, color: 0x3a5034, roughness: 1.0, metalness: 0.0 }); addDapple(m, POC.dapple, POC.dappleBig); return m; })()
   );
   groundFloor.rotation.x = -Math.PI / 2;
   groundFloor.position.y = -0.02;
   groundFloor.receiveShadow = true;
   scene.add(groundFloor);
+  envObjects.lawn = groundFloor;
   // A dark basin under the green so nothing bright shows if the turf dips deep.
   const basin = new THREE.Mesh(
     new THREE.CircleGeometry(R_BASE * 1.5, 96),
@@ -1431,10 +1559,11 @@ function buildEnvironment() {
   basin.rotation.x = -Math.PI / 2;
   basin.position.y = -0.6;
   scene.add(basin);
+  envObjects.basin = basin;
 
   /* Stone coping: a low limestone edge that follows the green's
      organic outline, so the surface reads as built into the garden. */
-  const N = 288, LIP_Y = 0.024, BASE_Y = -0.035, WIDTH = 0.24;
+  const N = 288, LIP_Y = 0.024, BASE_Y = -0.035, WIDTH = POC.copingWidth || 0.24;
   const pos = [];
   for (let i = 0; i <= N; i++) {
     const th = (i / N) * Math.PI * 2;
@@ -1460,12 +1589,58 @@ function buildEnvironment() {
   copingGeom.setIndex(idx);
   copingGeom.computeVertexNormals();
   const coping = new THREE.Mesh(copingGeom, new THREE.MeshStandardMaterial({
-    color: 0xa89c84, roughness: 0.9, metalness: 0.0,    // warm limestone, kept quiet: the whole ring is visible now
-    emissive: 0x4a4236, emissiveIntensity: 0.35            // the key rakes from behind, so lift the shadow side to a readable mid-tone
+    color: POC.copingColor || 0xa89c84, roughness: 0.9, metalness: 0.0,   // warm limestone
+    emissive: 0x4a4236, emissiveIntensity: POC.copingLift != null ? POC.copingLift : 0.18            // the key rakes from behind, so lift the shadow side to a readable mid-tone
   }));
   coping.castShadow = true;
   coping.receiveShadow = true;
   scene.add(coping);
+  envObjects.coping = coping;
+
+  /* Apron (proof of concept): a ring of mown grass around the coping that covers the
+     hole left where the capture's flower bed was cut away. Follows edgeShape. */
+  {
+    const AN = 288, AW = POC.apronWidth || 1.8;
+    const apos = [], auv = [];
+    for (let i = 0; i <= AN; i++) {
+      const th = (i / AN) * Math.PI * 2;
+      const rIn = R_BASE * edgeShape(th) * 0.992 + WIDTH + 0.01;
+      const rOut = rIn + AW;
+      const c = Math.cos(th), sn = Math.sin(th);
+      apos.push(c * rIn, -0.045, -sn * rIn);
+      apos.push(c * rOut, -0.06, -sn * rOut);
+      auv.push(c * rIn * 0.5, sn * rIn * 0.5, c * rOut * 0.5, sn * rOut * 0.5);
+    }
+    const aidx = [];
+    for (let i = 0; i < AN; i++) { const a = i * 2, b = (i + 1) * 2; aidx.push(a, a + 1, b, b, a + 1, b + 1); }
+    const apronGeom = new THREE.BufferGeometry();
+    apronGeom.setAttribute('position', new THREE.Float32BufferAttribute(apos, 3));
+    apronGeom.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2));
+    apronGeom.setIndex(aidx);
+    apronGeom.computeVertexNormals();
+    const aCanvas = document.createElement('canvas');
+    aCanvas.width = 512; aCanvas.height = 512;
+    const actx = aCanvas.getContext('2d');
+    const aImg = actx.createImageData(512, 512);
+    const ab = POC.apronBase || [96, 100, 48];
+    for (let i = 0; i < 512 * 512; i++) {
+      const n = (Math.random() - 0.5) * 34, m = (Math.random() - 0.5) * 10;
+      aImg.data[i*4]     = Math.max(0, Math.min(255, ab[0] + n + m));
+      aImg.data[i*4 + 1] = Math.max(0, Math.min(255, ab[1] + n));
+      aImg.data[i*4 + 2] = Math.max(0, Math.min(255, ab[2] + n - m));
+      aImg.data[i*4 + 3] = 255;
+    }
+    actx.putImageData(aImg, 0, 0);
+    const apronTex = new THREE.CanvasTexture(aCanvas);
+    apronTex.wrapS = apronTex.wrapT = THREE.RepeatWrapping;
+    apronTex.anisotropy = 8;
+    const apronMat = new THREE.MeshStandardMaterial({ map: apronTex, color: parseInt(POC.lawnTint, 16), roughness: 1.0, metalness: 0.0 });
+    addDapple(apronMat, POC.dapple, POC.dappleBig);
+    const apron = new THREE.Mesh(apronGeom, apronMat);
+    apron.receiveShadow = true;
+    scene.add(apron);
+    envObjects.apron = apron;
+  }
 
 }
 
@@ -1630,7 +1805,9 @@ const CAM_LANDSCAPE = { x: 5.6, y: 2.5,  z: 11.4, fov: 28, lookX: -1.85, lookY: 
 const CAM_PORTRAIT  = { x: 1.4, y: 3.6,  z: 12.6, fov: 36, lookX: 0.2,  lookY: 2.4,  lookZ: -0.4 };
 let CAM = CAM_LANDSCAPE;
 function applyCameraPose(aspect) {
-  CAM = aspect < 0.92 ? CAM_PORTRAIT : CAM_LANDSCAPE;
+  const gs = POC.greenScale || 1;
+  const base = aspect < 0.92 ? CAM_PORTRAIT : CAM_LANDSCAPE;
+  CAM = Object.assign({}, base, { x: base.x * gs, z: base.z * gs, lookX: base.lookX * gs, lookZ: base.lookZ * gs });
   camera.fov = CAM.fov;
   camera.aspect = aspect;
   camera.updateProjectionMatrix();
@@ -1638,6 +1815,7 @@ function applyCameraPose(aspect) {
   camera.lookAt(CAM.lookX, CAM.lookY, CAM.lookZ);
 }
 function updateCamera(t) {
+  if (POC.orbit) return;
   const orbit = REDUCED_MOTION ? 0 : Math.sin(t * 0.10) * 0.35;
   const rise  = REDUCED_MOTION ? 0 : Math.sin(t * 0.07) * 0.22;
   const push  = REDUCED_MOTION ? 0 : Math.cos(t * 0.10) * 0.20;
@@ -1660,6 +1838,7 @@ function onResize() {
 let heroVisible = true;
 let rafId = 0;
 let engineReady = false;
+let splatReady = false;   // the poster lifts only once the garden splat has loaded
 function frame() {
   // Always render the first frame (it lifts the poster); pause only after that.
   if (engineReady && (!heroVisible || document.hidden)) { rafId = 0; return; }
@@ -1668,7 +1847,7 @@ function frame() {
   updateGeometry(tNow);
   updateCamera(tNow);
   renderer.render(scene, camera);
-  if (!engineReady) {
+  if (!engineReady && splatReady) {
     engineReady = true;
     document.body.classList.add('engine-ready');
   }
@@ -1698,9 +1877,163 @@ function stepDemo() {
   selectTopology(pick);
 }
 
+async function resolveSplatUrl(base) {
+  if (/\.(sog|zip|ply|spz|splat|ksplat)(\?|$)/i.test(base) || /^https?:/i.test(base)) return base;
+  for (const ext of ['.sog', '.zip', '.ply', '.spz']) {
+    try { const r = await fetch(base + ext, { method: 'HEAD' }); if (r.ok) return base + ext; } catch (e) {}
+  }
+  return null;
+}
+function applyPoc() {
+  if (splatMesh) {
+    splatMesh.position.set(POC.pos[0], POC.pos[1], POC.pos[2]);
+    const yawExtra = (camera && camera.aspect < 0.92) ? (POC.portraitYaw || 0) : 0;
+    splatMesh.rotation.set(POC.rotDeg[0] * Math.PI / 180, (POC.rotDeg[1] + yawExtra) * Math.PI / 180, POC.rotDeg[2] * Math.PI / 180);
+    splatMesh.scale.setScalar(POC.scale);
+  }
+  if (cutSdf) {
+    cutSdf.position.set(POC.cut.x, POC.cut.y, POC.cut.z);
+    cutSdf.scale.set(POC.cut.rx, POC.cut.ry, POC.cut.rz);
+    splatEdit.softEdge = POC.cut.soft;
+  }
+  extraSdfs.forEach((sdf, i) => {
+    let c = (POC.extraCuts || [])[i];
+    if (c && c.landscapeOnly && camera.aspect < 0.92) c = null;   // aimed at the landscape pose; the portrait pose yaws the splat
+    if (c) {
+      const typeMap = { plane: SplatEditSdfType.PLANE, box: SplatEditSdfType.BOX, sphere: SplatEditSdfType.SPHERE, ellipsoid: SplatEditSdfType.ELLIPSOID };
+      sdf.type = typeMap[c.type || 'ellipsoid'] || SplatEditSdfType.ELLIPSOID;
+      sdf.position.set(c.x, c.y, c.z); sdf.scale.set(c.rx || 1, c.ry || c.rx || 1, c.rz || c.rx || 1);
+      if (c.q) sdf.quaternion.set(c.q[0], c.q[1], c.q[2], c.q[3]); else sdf.rotation.set(0, 0, 0);
+      if (c.type === 'sphere') sdf.radius = c.rx || 1;
+      if (c.tint) { sdf.opacity = 1; sdf.color.setHex(parseInt(c.tint, 16)); } else { sdf.opacity = 0; }
+    }
+    else { sdf.position.set(0, -1e5, 0); sdf.scale.set(0.01, 0.01, 0.01); }
+  });
+  if (envObjects.skyDome) {
+    envObjects.skyDome.visible = envObjects.cirrus.visible = envObjects.stars.visible = !POC.hideEnv && POC.showSky;
+    envObjects.lawn.visible = envObjects.basin.visible = !POC.hideEnv && POC.showLawn;
+    envObjects.lawn.position.y = POC.lawnY;
+    envObjects.lawn.material.color.setHex(parseInt(POC.lawnTint, 16));
+    if (envObjects.apron) envObjects.apron.material.color.setHex(parseInt(POC.lawnTint, 16));
+    for (const o of [envObjects.lawn, envObjects.apron]) if (o) setDappleUniforms(o.material.userData.shader, POC.dapple, POC.dappleBig);
+  }
+  if (skySdf) skySdf.radius = POC.skyCut > 0 ? POC.skyCut : 1e6;
+  if (skyPlaneSdf) {
+    skyPlaneSdf.position.set(0, POC.skyY > 0 ? POC.skyY : 1e5, 0);
+    skyPlaneSdf.rotation.set(POC.skyYInvert ? Math.PI : 0, 0, 0);
+  }
+  if (nearSdf) nearSdf.position.set(0, 0, POC.nearCutZ > 0 ? POC.nearCutZ : 1e5);
+  if (gradeSdf) gradeSdf.color.setRGB(POC.grade[0], POC.grade[1], POC.grade[2]);
+  if (green) green.castShadow = !!POC.greenShadow;
+  if (envObjects.coping) envObjects.coping.castShadow = !!POC.greenShadow;
+  scene.fog = POC.fogOff ? null : new THREE.Fog(parseInt(POC.fogColor || 'b9d3ea', 16), POC.fogNear || 45, POC.fogFar || 190);
+  if (POC.sunny) {
+    // a low afternoon sun: warm key with a real shadow, blue sky fill, little ambient
+    lightRefs.key.color.setHex(0xfff0d0); lightRefs.key.intensity = POC.keyI * Math.PI; lightRefs.key.position.set(POC.sunPos[0], POC.sunPos[1], POC.sunPos[2]);
+    lightRefs.fill.color.setHex(0x9cc4ea); lightRefs.fill.intensity = 0.25 * Math.PI; lightRefs.rim.intensity = 0;
+    lightRefs.hemi.color.setHex(0x9cc4ea); lightRefs.hemi.groundColor.setHex(0x4a5a30); lightRefs.hemi.intensity = POC.hemiI * Math.PI;
+    lightRefs.amb.color.setHex(0xb8c0c8); lightRefs.amb.intensity = POC.ambI * Math.PI;
+  } else if (POC.daylight) {
+    // overcast daylight to match a daytime capture: soft high key, strong sky fill, no coloured rim
+    lightRefs.key.color.setHex(0xf6f2ea); lightRefs.key.intensity = POC.keyI * Math.PI; lightRefs.key.position.set(2, 9, 4);
+    lightRefs.fill.intensity = 0.15 * Math.PI; lightRefs.rim.intensity = 0;
+    lightRefs.hemi.color.setHex(0xdfe7ee); lightRefs.hemi.groundColor.setHex(0x3a4a30); lightRefs.hemi.intensity = POC.hemiI * Math.PI;
+    lightRefs.amb.color.setHex(0x9aa0a8); lightRefs.amb.intensity = POC.ambI * Math.PI;
+  } else {
+    lightRefs.key.color.setHex(0xffd89c); lightRefs.key.intensity = 2.7 * Math.PI; lightRefs.key.position.set(-7, 3.6, -6);
+    lightRefs.fill.intensity = 0.62 * Math.PI; lightRefs.rim.intensity = 0.30 * Math.PI;
+    lightRefs.hemi.color.setHex(0x6f97cf); lightRefs.hemi.groundColor.setHex(0x140e08); lightRefs.hemi.intensity = 0.44 * Math.PI;
+    lightRefs.amb.color.setHex(0x342a22); lightRefs.amb.intensity = 0.30 * Math.PI;
+  }
+  renderer.toneMappingExposure = POC.exposure;
+  if (green && POC.turfTint) green.material.color.setHex(parseInt(POC.turfTint, 16));
+  if (green && green.material.userData.shader) {
+    green.material.userData.shader.uniforms.uStripeGain.value = POC.stripeGain;
+    green.material.userData.shader.uniforms.uGrain.value = POC.grain;
+    setDappleUniforms(green.material.userData.shader, POC.dappleGreen, POC.dappleGreenBig);
+  }
+  applyCameraPose(camera.aspect);
+  const hud = document.getElementById('pocHud');
+  if (hud) hud.textContent = 'splat ' + (splatMesh ? (splatMesh.numSplats || '?') + ' splats' : 'none') +
+    ' · pos ' + POC.pos.map(v => v.toFixed(2)).join(',') + ' · rot ' + POC.rotDeg.join(',') + ' · scale ' + POC.scale +
+    ' · cut r ' + [POC.cut.rx, POC.cut.ry, POC.cut.rz].join(',') + ' · ' + (POC.sunny ? 'sunny' : (POC.daylight ? 'daylight' : 'dusk')) + ' · sky ' + (POC.showSky ? 'ours' : 'splat') + ' · grade ' + POC.grade.join(',');
+}
+async function loadSplat() {
+  const url = await resolveSplatUrl(POC.url || (LOW_POWER ? 'assets/garden/flowers-lite' : 'assets/garden/flowers'));
+  const hud = document.getElementById('pocHud');
+  if (!url) { if (hud) hud.textContent = 'No splat file found at ' + POC.url + ' (.sog/.zip/.ply/.spz). Drop the download into assets/poc/.'; applyPoc(); return; }
+  splatMesh = new SplatMesh({
+    url,
+    onLoad: () => { applyPoc(); splatReady = true; },
+    onProgress: (p) => { if (hud) hud.textContent = 'loading splat ' + Math.round(p * 100) + '%'; }
+  });
+  // Hide the splats where the green (and the flower bed) sit: an ellipsoid at opacity 0
+  splatEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, softEdge: POC.cut.soft });
+  cutSdf = new SplatEditSdf({ type: SplatEditSdfType.ELLIPSOID, opacity: 0 });
+  splatEdit.add(cutSdf);
+  scene.add(splatEdit);          // global edit: applies in world space, independent of the splat's own transform
+  // Extra deletes for stray clumps (tuned live through __POC.set({ extraCuts: [...] }))
+  extraEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, softEdge: 0.6 });
+  for (let i = 0; i < 8; i++) { const sdf = new SplatEditSdf({ type: SplatEditSdfType.ELLIPSOID, opacity: 0 }); sdf.position.set(0, -1e5, 0); sdf.scale.set(0.01, 0.01, 0.01); extraEdit.add(sdf); extraSdfs.push(sdf); }
+  scene.add(extraEdit);
+  // Hide the capture's far sky/background: everything outside a sphere around the origin
+  skyEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, softEdge: 4.0 });
+  skySdf = new SplatEditSdf({ type: SplatEditSdfType.SPHERE, invert: true, opacity: 0, radius: POC.skyCut > 0 ? POC.skyCut : 1e6 });
+  skyEdit.add(skySdf);
+  scene.add(skyEdit);
+  // ...and everything above a height: the capture's sky sits over the tree tops
+  skyPlaneEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, softEdge: 2.0 });
+  skyPlaneSdf = new SplatEditSdf({ type: SplatEditSdfType.PLANE, opacity: 0 });
+  skyPlaneSdf.position.set(0, POC.skyY > 0 ? POC.skyY : 1e5, 0);
+  skyPlaneEdit.add(skyPlaneSdf);
+  scene.add(skyPlaneEdit);
+  // ...and the near field in front of the green (toward the camera): the capture is weakest there
+  nearEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, softEdge: 1.5 });
+  nearSdf = new SplatEditSdf({ type: SplatEditSdfType.PLANE, opacity: 0 });
+  nearSdf.position.set(0, 0, POC.nearCutZ > 0 ? POC.nearCutZ : 1e5);
+  nearSdf.rotation.set(-Math.PI / 2, 0, 0);   // plane normal along +z: 'inside' is the half-space toward the camera
+  nearEdit.add(nearSdf);
+  scene.add(nearEdit);
+  // Global colour grade on the splat
+  gradeEdit = new SplatEdit({ rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY });
+  gradeSdf = new SplatEditSdf({ type: SplatEditSdfType.ALL, opacity: 1, color: new THREE.Color(POC.grade[0], POC.grade[1], POC.grade[2]) });
+  gradeEdit.add(gradeSdf);
+  scene.add(gradeEdit);
+  scene.add(splatMesh);
+  applyPoc();
+}
+window.__POC = {
+  get params() { return POC; },
+  set(patch) { deepMerge(POC, patch); applyPoc(); return POC; },
+  get splat() { return splatMesh; },
+  get env() { return envObjects; }, get lights() { return lightRefs; }, get scene() { return scene; }, get renderer() { return renderer; }, get green() { return green; },
+  bounds() {
+    if (!splatMesh) return null;
+    const b = new THREE.Box3().setFromObject(splatMesh);
+    return { min: b.min.toArray(), max: b.max.toArray() };
+  },
+  frame() { const t = performance.now() / 1000; updateGeometry(t); updateCamera(t); renderer.render(scene, camera); },
+  get camera() { return camera; }, get THREE() { return THREE; },
+  planeBeyond(d, tint, flip) {   // an extraCuts entry: a camera-facing plane d metres out whose inside is everything beyond it
+    const fwd = camera.getWorldDirection(new THREE.Vector3());
+    const pos = camera.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, d);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), flip ? fwd.clone().negate() : fwd.clone());
+    return { type: 'plane', x: pos.x, y: pos.y, z: pos.z, q: q.toArray(), tint };
+  },
+  ray(px, py, t) {   // world point t metres along the sight line through drawing-buffer pixel (px, py)
+    const w = renderer.domElement.width, h = renderer.domElement.height;
+    const v = new THREE.Vector3((px / w) * 2 - 1, 1 - (py / h) * 2, 0.5).unproject(camera);
+    const d = v.sub(camera.position).normalize();
+    return camera.position.clone().addScaledVector(d, t).toArray();
+  },
+  snapshot(q) { window.__POC.frame(); return renderer.domElement.toDataURL('image/jpeg', q || 0.92); }
+};
+function deepMerge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) { a[k] = a[k] || {}; deepMerge(a[k], b[k]); } else a[k] = b[k]; } }
+
 function start() {
   try {
     init();
+    loadSplat();
     frame();
     setTimeout(stepDemo, 3000);
     setInterval(stepDemo, DEMO_INTERVAL);
