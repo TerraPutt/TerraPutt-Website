@@ -43,3 +43,10 @@
   for = "/favicon.ico"
   [headers.values]
     Cache-Control = "public, max-age=2592000"
+
+# Meta VR Start Developer Competition 2026: invite link for the Lamplighter build
+[[redirects]]
+  from = "/startvrcomp"
+  to = "https://www.meta.com/s/5hoNXSUat"
+  status = 302
+  force = true
